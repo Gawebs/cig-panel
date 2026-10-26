@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import logoArea from "./assets/logo-area-clean.png";
-import logoCatastroTucuman from "./assets/logo-catastro-tucuman.png";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2263,10 +2262,6 @@ function PasswordAdminModal({ open, mode = "change", selectedUserId, onClose, on
 
 const PERSONA_24374_VACIA = { nombre: "", dni: "", cuil: "", telefono: "", domicilio: "", ciudad: "", estadoCivil: "" };
 
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
-}
-
 function buildFormulario24374Form(expediente) {
   const zona = splitBarrio(expediente?.barrio);
   const localidad = zona.localidad || "Banda del Río Salí";
@@ -2291,102 +2286,74 @@ function buildFormulario24374Form(expediente) {
   };
 }
 
-function buildFormulario24374PrintHtml(form, logoCatastro) {
-  const campo = (label, value, grow = 1) => `<div class="f" style="flex:${grow}"><span class="l">${label}</span><span class="v">${escapeHtml(value)}</span></div>`;
-  const persona = (titulo, p, completa) => `
-    <div class="persona">
-      <div class="sub">- ${titulo}</div>
-      <div class="row">${campo("Apellido y Nombre:", p.nombre)}</div>
-      <div class="row">${campo("DNI:", p.dni)}${campo("CUIL:", p.cuil)}${campo("Tel.:", p.telefono)}</div>
-      ${completa ? `<div class="row">${campo("Domicilio:", p.domicilio, 2)}${campo("Ciudad:", p.ciudad)}</div><div class="row">${campo("Estado Civil:", p.estadoCivil)}</div>` : ""}
-    </div>`;
-  const firma = (titulo) => `
-    <div class="firma"><div class="linea">${titulo}</div><div class="linea">Aclaración</div><div class="linea">N° DNI</div></div>`;
-  const header = `
-    <div class="band">
-      <img src="${logoCatastro}" />
-      <div class="band-org">SUBDIRECCIÓN DE<br/>INMUEBLES FISCALES</div>
-      <div class="band-title">SOLICITUD DE ADHESIÓN AL RÉGIMEN DE LA<br/>LEY NACIONAL N°24.374 - PROVINCIAL N°8.031 - DCTO REG. 782/1</div>
-    </div>`;
-  const vacia = { ...PERSONA_24374_VACIA };
-  const anexo = form.incluirAnexo ? `
-  <div class="page break">
-    ${header}
-    <div class="sec">ANEXO I<br/>REGISTRO DE SOLICITANTES ADICIONALES</div>
-    <div class="box">
-      ${persona("SOLICITANTE...", vacia, true)}${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE...", vacia, false)}
-      ${persona("SOLICITANTE...", vacia, true)}${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE...", vacia, false)}
-      ${persona("SOLICITANTE...", vacia, true)}${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE...", vacia, false)}
-      <div class="firmas tres">${firma("Firma del Solicitante...")}${firma("Firma del Solicitante...")}${firma("Firma del Solicitante...")}</div>
-    </div>
-  </div>` : "";
+// Posiciones medidas sobre el PDF original de Catastro (puntos, origen arriba a la izquierda).
+// "y" es el borde inferior de la etiqueta impresa; el valor se escribe sobre esa misma línea punteada.
+const FORMULARIO_24374_URL = "/formularios/ley-24374-solicitud.pdf";
+const FORMULARIO_24374_FILAS = {
+  solicitante1: [223.4, 237.6, 251.8, 266.0],
+  conyuge1: [304.2, 318.4],
+  solicitante2: [360.7, 374.9, 389.2, 403.4],
+  conyuge2: [440.4, 454.6],
+};
+const FORMULARIO_24374_PERSONA_CAMPOS = [
+  { field: "nombre", fila: 0, x0: 172, x1: 566 },
+  { field: "dni", fila: 1, x0: 101, x1: 190 },
+  { field: "cuil", fila: 1, x0: 224, x1: 313 },
+  { field: "telefono", fila: 1, x0: 339, x1: 566 },
+  { field: "domicilio", fila: 2, x0: 127, x1: 314 },
+  { field: "ciudad", fila: 2, x0: 357, x1: 566 },
+  { field: "estadoCivil", fila: 3, x0: 140, x1: 566 },
+];
+const FORMULARIO_24374_INMUEBLE_CAMPOS = [
+  { field: "inmuebleDomicilio", y: 545.4, x0: 127, x1: 566 },
+  { field: "circ", y: 587.4, x0: 101, x1: 161 },
+  { field: "secc", y: 587.4, x0: 193, x1: 253 },
+  { field: "mzna", y: 587.4, x0: 284, x1: 368 },
+  { field: "parcela", y: 587.4, x0: 410, x1: 566 },
+  { field: "padron", y: 602.3, x0: 117, x1: 232 },
+  { field: "matricula", y: 602.3, x0: 282, x1: 372 },
+  { field: "orden", y: 602.3, x0: 407, x1: 566 },
+  { field: "antecedente", y: 617.2, x0: 202, x1: 566 },
+];
 
-  return `
-<html>
-<head>
-<title>Solicitud Ley 24.374 - ${escapeHtml(form.solicitante1.nombre || "")}</title>
-<style>
-@page { size: A4; margin: 1cm 1.1cm; }
-* { box-sizing: border-box; }
-body { margin: 0; color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 10pt; }
-.page { width: 100%; }
-.break { page-break-before: always; }
-.band { background: #a7a9ac; color: #fff; padding: 10px 14px 12px; display: grid; grid-template-columns: auto 1fr; align-items: center; row-gap: 12px; }
-.band img { height: 56px; display: block; }
-.band-org { text-align: center; font-weight: 700; font-size: 11pt; }
-.band-title { grid-column: 1 / -1; text-align: center; font-weight: 700; font-size: 11.5pt; line-height: 1.25; }
-.fecha { display: flex; justify-content: flex-end; padding: 8px 0 2px; }
-.fecha .f { flex: 0 0 6.2cm !important; }
-.sec { text-align: center; font-weight: 700; font-size: 10.5pt; margin: 8px 0 4px; }
-.box { background: #ececed; padding: 6px 1.2cm 10px; }
-.persona { margin-bottom: 6px; }
-.sub { font-weight: 700; font-size: 11pt; margin: 6px 0 2px; }
-.row { display: flex; gap: 10px; }
-.f { display: flex; align-items: flex-end; min-width: 0; min-height: 19px; }
-.l { white-space: nowrap; padding-right: 3px; }
-.v { flex: 1; min-width: 0; border-bottom: 1px dotted #555; padding: 0 3px 1px; font-weight: 700; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 15px; }
-.nota { font-size: 7.5pt; margin-top: 4px; }
-.check { display: inline-flex; align-items: center; gap: 8px; margin-left: 1.2cm; font-size: 10.5pt; }
-.check span.c { width: 16px; height: 16px; border: 1.2px solid #333; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11pt; }
-.firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5cm; margin-top: 2.8cm; padding: 0 1cm; }
-.firmas.tres { grid-template-columns: 1fr 1fr 1fr; gap: 0.8cm; padding: 0; margin-top: 2.4cm; }
-.firma .linea { border-top: 1px dotted #555; text-align: center; font-size: 8.5pt; padding-top: 2px; margin-bottom: 22px; }
-.condominio { text-align: right; font-size: 8pt; margin-top: 14px; }
-@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-</style>
-</head>
-<body>
-  <div class="page">
-    ${header}
-    <div class="fecha">${campo("Fecha", form.fecha)}</div>
-    <div class="sec">DATOS PERSONALES</div>
-    <div class="box">
-      ${persona("SOLICITANTE 1", form.solicitante1, true)}
-      ${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE 1", form.conyuge1, false)}
-      ${persona("SOLICITANTE 2", form.solicitante2, true)}
-      ${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE 2", form.conyuge2, false)}
-      <div class="nota">(En caso de existir más solicitantes, ver Anexo I)</div>
-    </div>
-    <div class="sec">DATOS DEL INMUEBLE</div>
-    <div class="box">
-      <div class="sub" style="display:flex;align-items:center">- UBICACIÓN DEL INMUEBLE
-        <span class="check" style="font-weight:400">CAPITAL <span class="c">${form.ubicacion === "capital" ? "X" : ""}</span></span>
-        <span class="check" style="font-weight:400">INTERIOR <span class="c">${form.ubicacion === "interior" ? "X" : ""}</span></span>
-      </div>
-      <div class="row">${campo("Domicilio:", form.inmuebleDomicilio)}</div>
-      <div class="sub">- DATOS CATASTRALES</div>
-      <div class="row">${campo("Circ.", form.circ)}${campo("Secc.", form.secc)}${campo("Mzna", form.mzna)}${campo("Parcela", form.parcela)}</div>
-      <div class="row">${campo("Padrón:", form.padron)}${campo("Matrícula", form.matricula)}${campo("Orden", form.orden)}</div>
-      <div class="row">${campo("Antecedente de Dominio:", form.antecedente)}</div>
-      <div class="condominio">(*) Firmarán las dos partes cuando sea condominio.</div>
-      <div class="firmas">${firma("Firma del Solicitante 1")}${firma("(*) Firma del Solicitante 2")}</div>
-    </div>
-  </div>
-  ${anexo}
-  <script>window.onload = function() { window.print(); };</script>
-</body>
-</html>
-`;
+async function buildFormulario24374Pdf(form) {
+  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+  const original = await fetch(FORMULARIO_24374_URL).then((res) => {
+    if (!res.ok) throw new Error("No se pudo cargar el formulario original.");
+    return res.arrayBuffer();
+  });
+  const pdf = await PDFDocument.load(original);
+  if (!form.incluirAnexo) pdf.removePage(1);
+  const page = pdf.getPage(0);
+  const alto = page.getHeight();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+
+  const escribir = (value, x0, x1, y) => {
+    // Helvetica estándar solo admite Latin-1: se descartan caracteres fuera de ese rango.
+    const text = cleanText(value).toUpperCase().replace(/[^\x20-\x7E\xA0-\xFF]/g, "");
+    if (!text) return;
+    let size = 10;
+    while (size > 6 && font.widthOfTextAtSize(text, size) > x1 - x0) size -= 0.5;
+    page.drawText(text, { x: x0, y: alto - (y - 4), size, font, color: rgb(0, 0, 0) });
+  };
+
+  const [dia = "", mes = "", anio = ""] = cleanText(form.fecha).split("/");
+  escribir(dia, 452, 473, 150.9);
+  escribir(mes, 481, 500, 150.9);
+  escribir(anio, 508, 545, 150.9);
+
+  Object.entries(FORMULARIO_24374_FILAS).forEach(([persona, filas]) => {
+    FORMULARIO_24374_PERSONA_CAMPOS.forEach(({ field, fila, x0, x1 }) => {
+      if (filas[fila] !== undefined) escribir(form[persona]?.[field], x0, x1, filas[fila]);
+    });
+  });
+
+  FORMULARIO_24374_INMUEBLE_CAMPOS.forEach(({ field, y, x0, x1 }) => escribir(form[field], x0, x1, y));
+
+  const casilla = form.ubicacion === "capital" ? { x: 364.4 } : form.ubicacion === "interior" ? { x: 495.1 } : null;
+  if (casilla) page.drawText("X", { x: casilla.x - 3.7, y: alto - 520.4, size: 11, font, color: rgb(0, 0, 0) });
+
+  return pdf.save();
 }
 
 function Formulario24374Modal({ expediente, onClose }) {
@@ -2394,12 +2361,24 @@ function Formulario24374Modal({ expediente, onClose }) {
   const set = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const setPersona = (persona, field, value) => setForm((prev) => ({ ...prev, [persona]: { ...prev[persona], [field]: value } }));
 
-  const imprimir = () => {
-    const html = buildFormulario24374PrintHtml(form, new URL(logoCatastroTucuman, window.location.origin).href);
+  const [generando, setGenerando] = useState(false);
+  const [errorPdf, setErrorPdf] = useState("");
+
+  const imprimir = async () => {
+    // La pestaña se abre antes de generar el PDF para que el navegador no la bloquee.
     const win = window.open("", "_blank");
-    if (win) {
-      win.document.write(html);
-      win.document.close();
+    setGenerando(true);
+    setErrorPdf("");
+    try {
+      const bytes = await buildFormulario24374Pdf(form);
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      if (win) win.location.href = url;
+      else window.location.assign(url);
+    } catch (err) {
+      if (win) win.close();
+      setErrorPdf(err?.message || "No se pudo generar el formulario.");
+    } finally {
+      setGenerando(false);
     }
   };
 
@@ -2439,7 +2418,7 @@ function Formulario24374Modal({ expediente, onClose }) {
 
         <div style={{ padding: 20, display: "grid", gap: 12 }}>
           <div style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe", borderRadius: 12, padding: "10px 14px", fontSize: 13 }}>
-            Los datos del expediente ya vienen cargados. Completá lo que falte o dejalo vacío: los campos vacíos salen con línea punteada para llenar a mano en la visita. Lo que se escriba acá no se guarda en el expediente.
+            Los datos del expediente ya vienen cargados. Se imprime sobre el formulario original de Catastro: completá lo que falte o dejalo vacío para llenarlo a mano en la visita. Lo que se escriba acá no se guarda en el expediente.
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>{campo("fecha", "Fecha")}</div>
@@ -2472,9 +2451,10 @@ function Formulario24374Modal({ expediente, onClose }) {
           </label>
         </div>
 
-        <div style={{ padding: "0 20px 20px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div style={{ padding: "0 20px 20px", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
+          {errorPdf ? <span style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorPdf}</span> : null}
           <button onClick={onClose} {...buttonHoverHandlers} style={{ ...btnGhost, ...interactiveButtonStyle }}>Cancelar</button>
-          <button onClick={imprimir} {...buttonHoverHandlers} style={{ ...btnPrimary, ...interactiveButtonStyle }}>Imprimir formulario</button>
+          <button onClick={imprimir} disabled={generando} {...buttonHoverHandlers} style={{ ...btnPrimary, ...interactiveButtonStyle, opacity: generando ? 0.7 : 1 }}>{generando ? "Generando..." : "Imprimir formulario"}</button>
         </div>
       </div>
     </div>
