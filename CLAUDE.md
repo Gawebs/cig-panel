@@ -28,6 +28,12 @@ Están hardcodeados en `LOGIN_USERS` dentro de `App.jsx`, no en la base. Seis pe
 
 Para agregar o cambiar un usuario hay que editar ese array y redeployar.
 
+## Formulario Ley 24.374 (Catastro provincial)
+
+Botón "Formulario Ley 24.374" en la ficha del expediente (`Formulario24374Modal`). **No se puede rediseñar:** es un formulario oficial de Catastro de Tucumán y tiene que salir idéntico. Por eso se llena el PDF original (`public/formularios/ley-24374-solicitud.pdf`) con `pdf-lib`, escribiendo cada dato en coordenadas medidas a mano (`FORMULARIO_24374_FILAS`, `FORMULARIO_24374_PERSONA_CAMPOS`, `FORMULARIO_24374_INMUEBLE_CAMPOS`). Si Catastro manda una versión nueva del PDF, hay que volver a medir las posiciones con pymupdf.
+
+Lo que se carga en el modal no se guarda: CUIL, cónyuge y datos catastrales no existen en la tabla `expedientes`.
+
 ## Trampas conocidas
 
 **El campo "Ubicación" se llama `resp` en el código.** La etiqueta que ve el usuario dice "Ubicación", pero la propiedad del expediente es `resp`. Los valores salen de la constante `UBICACIONES` (hoy: vacío, "Área técnica BRS", "Catastro"), es una lista fija, no una tabla. Originalmente era un UUID y se migró a texto.
