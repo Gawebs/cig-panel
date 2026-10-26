@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import logoArea from "./assets/logo-area-clean.png";
+import logoCatastroTucuman from "./assets/logo-catastro-tucuman.png";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2260,13 +2261,235 @@ function PasswordAdminModal({ open, mode = "change", selectedUserId, onClose, on
   );
 }
 
+const PERSONA_24374_VACIA = { nombre: "", dni: "", cuil: "", telefono: "", domicilio: "", ciudad: "", estadoCivil: "" };
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function buildFormulario24374Form(expediente) {
+  const zona = splitBarrio(expediente?.barrio);
+  const localidad = zona.localidad || "Banda del Río Salí";
+  const domicilio = zona.barrio && !/^(barrio|b°)/i.test(zona.barrio) ? `B° ${zona.barrio}` : zona.barrio;
+  return {
+    fecha: new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }),
+    solicitante1: { ...PERSONA_24374_VACIA, nombre: expediente?.titular || "", dni: expediente?.dni || "", telefono: expediente?.telefono || "", estadoCivil: expediente?.estadoCivil || "", domicilio, ciudad: localidad },
+    conyuge1: { ...PERSONA_24374_VACIA },
+    solicitante2: { ...PERSONA_24374_VACIA },
+    conyuge2: { ...PERSONA_24374_VACIA },
+    ubicacion: "interior",
+    inmuebleDomicilio: [domicilio, localidad].filter(Boolean).join(", "),
+    circ: "",
+    secc: "",
+    mzna: "",
+    parcela: "",
+    padron: expediente?.padronNumero || "",
+    matricula: "",
+    orden: "",
+    antecedente: "",
+    incluirAnexo: false,
+  };
+}
+
+function buildFormulario24374PrintHtml(form, logoCatastro) {
+  const campo = (label, value, grow = 1) => `<div class="f" style="flex:${grow}"><span class="l">${label}</span><span class="v">${escapeHtml(value)}</span></div>`;
+  const persona = (titulo, p, completa) => `
+    <div class="persona">
+      <div class="sub">- ${titulo}</div>
+      <div class="row">${campo("Apellido y Nombre:", p.nombre)}</div>
+      <div class="row">${campo("DNI:", p.dni)}${campo("CUIL:", p.cuil)}${campo("Tel.:", p.telefono)}</div>
+      ${completa ? `<div class="row">${campo("Domicilio:", p.domicilio, 2)}${campo("Ciudad:", p.ciudad)}</div><div class="row">${campo("Estado Civil:", p.estadoCivil)}</div>` : ""}
+    </div>`;
+  const firma = (titulo) => `
+    <div class="firma"><div class="linea">${titulo}</div><div class="linea">Aclaración</div><div class="linea">N° DNI</div></div>`;
+  const header = `
+    <div class="band">
+      <img src="${logoCatastro}" />
+      <div class="band-org">SUBDIRECCIÓN DE<br/>INMUEBLES FISCALES</div>
+      <div class="band-title">SOLICITUD DE ADHESIÓN AL RÉGIMEN DE LA<br/>LEY NACIONAL N°24.374 - PROVINCIAL N°8.031 - DCTO REG. 782/1</div>
+    </div>`;
+  const vacia = { ...PERSONA_24374_VACIA };
+  const anexo = form.incluirAnexo ? `
+  <div class="page break">
+    ${header}
+    <div class="sec">ANEXO I<br/>REGISTRO DE SOLICITANTES ADICIONALES</div>
+    <div class="box">
+      ${persona("SOLICITANTE...", vacia, true)}${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE...", vacia, false)}
+      ${persona("SOLICITANTE...", vacia, true)}${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE...", vacia, false)}
+      ${persona("SOLICITANTE...", vacia, true)}${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE...", vacia, false)}
+      <div class="firmas tres">${firma("Firma del Solicitante...")}${firma("Firma del Solicitante...")}${firma("Firma del Solicitante...")}</div>
+    </div>
+  </div>` : "";
+
+  return `
+<html>
+<head>
+<title>Solicitud Ley 24.374 - ${escapeHtml(form.solicitante1.nombre || "")}</title>
+<style>
+@page { size: A4; margin: 1cm 1.1cm; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 10pt; }
+.page { width: 100%; }
+.break { page-break-before: always; }
+.band { background: #a7a9ac; color: #fff; padding: 10px 14px 12px; display: grid; grid-template-columns: auto 1fr; align-items: center; row-gap: 12px; }
+.band img { height: 56px; display: block; }
+.band-org { text-align: center; font-weight: 700; font-size: 11pt; }
+.band-title { grid-column: 1 / -1; text-align: center; font-weight: 700; font-size: 11.5pt; line-height: 1.25; }
+.fecha { display: flex; justify-content: flex-end; padding: 8px 0 2px; }
+.fecha .f { flex: 0 0 6.2cm !important; }
+.sec { text-align: center; font-weight: 700; font-size: 10.5pt; margin: 8px 0 4px; }
+.box { background: #ececed; padding: 6px 1.2cm 10px; }
+.persona { margin-bottom: 6px; }
+.sub { font-weight: 700; font-size: 11pt; margin: 6px 0 2px; }
+.row { display: flex; gap: 10px; }
+.f { display: flex; align-items: flex-end; min-width: 0; min-height: 19px; }
+.l { white-space: nowrap; padding-right: 3px; }
+.v { flex: 1; min-width: 0; border-bottom: 1px dotted #555; padding: 0 3px 1px; font-weight: 700; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 15px; }
+.nota { font-size: 7.5pt; margin-top: 4px; }
+.check { display: inline-flex; align-items: center; gap: 8px; margin-left: 1.2cm; font-size: 10.5pt; }
+.check span.c { width: 16px; height: 16px; border: 1.2px solid #333; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11pt; }
+.firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5cm; margin-top: 2.8cm; padding: 0 1cm; }
+.firmas.tres { grid-template-columns: 1fr 1fr 1fr; gap: 0.8cm; padding: 0; margin-top: 2.4cm; }
+.firma .linea { border-top: 1px dotted #555; text-align: center; font-size: 8.5pt; padding-top: 2px; margin-bottom: 22px; }
+.condominio { text-align: right; font-size: 8pt; margin-top: 14px; }
+@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+  <div class="page">
+    ${header}
+    <div class="fecha">${campo("Fecha", form.fecha)}</div>
+    <div class="sec">DATOS PERSONALES</div>
+    <div class="box">
+      ${persona("SOLICITANTE 1", form.solicitante1, true)}
+      ${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE 1", form.conyuge1, false)}
+      ${persona("SOLICITANTE 2", form.solicitante2, true)}
+      ${persona("CÓNYUGE Y/O CONVIVIENTE DEL SOLICITANTE 2", form.conyuge2, false)}
+      <div class="nota">(En caso de existir más solicitantes, ver Anexo I)</div>
+    </div>
+    <div class="sec">DATOS DEL INMUEBLE</div>
+    <div class="box">
+      <div class="sub" style="display:flex;align-items:center">- UBICACIÓN DEL INMUEBLE
+        <span class="check" style="font-weight:400">CAPITAL <span class="c">${form.ubicacion === "capital" ? "X" : ""}</span></span>
+        <span class="check" style="font-weight:400">INTERIOR <span class="c">${form.ubicacion === "interior" ? "X" : ""}</span></span>
+      </div>
+      <div class="row">${campo("Domicilio:", form.inmuebleDomicilio)}</div>
+      <div class="sub">- DATOS CATASTRALES</div>
+      <div class="row">${campo("Circ.", form.circ)}${campo("Secc.", form.secc)}${campo("Mzna", form.mzna)}${campo("Parcela", form.parcela)}</div>
+      <div class="row">${campo("Padrón:", form.padron)}${campo("Matrícula", form.matricula)}${campo("Orden", form.orden)}</div>
+      <div class="row">${campo("Antecedente de Dominio:", form.antecedente)}</div>
+      <div class="condominio">(*) Firmarán las dos partes cuando sea condominio.</div>
+      <div class="firmas">${firma("Firma del Solicitante 1")}${firma("(*) Firma del Solicitante 2")}</div>
+    </div>
+  </div>
+  ${anexo}
+  <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>
+`;
+}
+
+function Formulario24374Modal({ expediente, onClose }) {
+  const [form, setForm] = useState(() => buildFormulario24374Form(expediente));
+  const set = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const setPersona = (persona, field, value) => setForm((prev) => ({ ...prev, [persona]: { ...prev[persona], [field]: value } }));
+
+  const imprimir = () => {
+    const html = buildFormulario24374PrintHtml(form, new URL(logoCatastroTucuman, window.location.origin).href);
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+  };
+
+  const personaCampos = (persona, titulo, completa) => (
+    <div style={{ background: "#f8fafc", border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: C.slate, marginBottom: 8 }}>{titulo}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+        <div style={{ gridColumn: "1 / -1" }}><div style={labelStyle}>Apellido y nombre</div><input value={form[persona].nombre} onChange={(e) => setPersona(persona, "nombre", e.target.value)} style={inputStyle} /></div>
+        <div><div style={labelStyle}>DNI</div><input value={form[persona].dni} onChange={(e) => setPersona(persona, "dni", e.target.value)} style={inputStyle} /></div>
+        <div><div style={labelStyle}>CUIL</div><input value={form[persona].cuil} onChange={(e) => setPersona(persona, "cuil", e.target.value)} style={inputStyle} /></div>
+        <div><div style={labelStyle}>Teléfono</div><input value={form[persona].telefono} onChange={(e) => setPersona(persona, "telefono", e.target.value)} style={inputStyle} /></div>
+        {completa ? (
+          <>
+            <div><div style={labelStyle}>Domicilio</div><input value={form[persona].domicilio} onChange={(e) => setPersona(persona, "domicilio", e.target.value)} style={inputStyle} /></div>
+            <div><div style={labelStyle}>Ciudad</div><input value={form[persona].ciudad} onChange={(e) => setPersona(persona, "ciudad", e.target.value)} style={inputStyle} /></div>
+            <div><div style={labelStyle}>Estado civil</div><select value={form[persona].estadoCivil} onChange={(e) => setPersona(persona, "estadoCivil", e.target.value)} style={inputStyle}>{ESTADOS_CIVILES.map((x) => <option key={x} value={x}>{x || "Seleccionar"}</option>)}</select></div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const campo = (field, label) => (
+    <div><div style={labelStyle}>{label}</div><input value={form[field]} onChange={(e) => set(field, e.target.value)} style={inputStyle} /></div>
+  );
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(15,23,42,.35)", backdropFilter: "blur(4px)", overflowY: "auto", padding: 14 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 980, margin: "20px auto", background: "#fff", borderRadius: 20, overflow: "hidden", boxShadow: "0 24px 80px rgba(15,23,42,.18)" }}>
+        <div style={{ background: "linear-gradient(135deg,#0ea5e9,#14b8a6)", padding: "18px 22px", color: "#fff", display: "flex", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", opacity: 0.85 }}>Solicitud de adhesión · Ley 24.374</div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>{expediente?.num}</div>
+          </div>
+          <button onClick={onClose} {...buttonHoverHandlers} style={{ ...btnGhost, ...interactiveButtonStyle, background: "rgba(255,255,255,.15)", color: "#fff", borderColor: "rgba(255,255,255,.35)" }}>Cerrar</button>
+        </div>
+
+        <div style={{ padding: 20, display: "grid", gap: 12 }}>
+          <div style={{ background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe", borderRadius: 12, padding: "10px 14px", fontSize: 13 }}>
+            Los datos del expediente ya vienen cargados. Completá lo que falte o dejalo vacío: los campos vacíos salen con línea punteada para llenar a mano en la visita. Lo que se escriba acá no se guarda en el expediente.
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>{campo("fecha", "Fecha")}</div>
+
+          {personaCampos("solicitante1", "Solicitante 1", true)}
+          {personaCampos("conyuge1", "Cónyuge y/o conviviente del solicitante 1", false)}
+          {personaCampos("solicitante2", "Solicitante 2 (solo si es condominio)", true)}
+          {personaCampos("conyuge2", "Cónyuge y/o conviviente del solicitante 2", false)}
+
+          <div style={{ background: "#f8fafc", border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.slate, marginBottom: 8 }}>Datos del inmueble</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
+              <div><div style={labelStyle}>Ubicación</div><select value={form.ubicacion} onChange={(e) => set("ubicacion", e.target.value)} style={inputStyle}><option value="">Sin marcar</option><option value="capital">Capital</option><option value="interior">Interior</option></select></div>
+              <div style={{ gridColumn: "span 3" }}>{campo("inmuebleDomicilio", "Domicilio del inmueble")}</div>
+              {campo("circ", "Circunscripción")}
+              {campo("secc", "Sección")}
+              {campo("mzna", "Manzana")}
+              {campo("parcela", "Parcela")}
+              {campo("padron", "Padrón")}
+              {campo("matricula", "Matrícula")}
+              {campo("orden", "Orden")}
+              <div />
+              <div style={{ gridColumn: "1 / -1" }}>{campo("antecedente", "Antecedente de dominio")}</div>
+            </div>
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.slate, cursor: "pointer" }}>
+            <input type="checkbox" checked={form.incluirAnexo} onChange={(e) => set("incluirAnexo", e.target.checked)} />
+            Agregar Anexo I en blanco (para más de dos solicitantes)
+          </label>
+        </div>
+
+        <div style={{ padding: "0 20px 20px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button onClick={onClose} {...buttonHoverHandlers} style={{ ...btnGhost, ...interactiveButtonStyle }}>Cancelar</button>
+          <button onClick={imprimir} {...buttonHoverHandlers} style={{ ...btnPrimary, ...interactiveButtonStyle }}>Imprimir formulario</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalExpediente({ item, users, usersMap, onClose, onSaveField, savingField, onUploadPlano, onDeletePlano, uploadingPlano, deletingPlanoId, canEdit, onDelete, planos = [], onNext, modalIndex = 0, modalTotal = 0, activeUser, observacionesIntendente = [], onAddObservacionIntendente, addingObservacionIntendente, existingExpedientes = [], onDuplicatePadron }) {
   const [draft, setDraft] = useState(item || null);
   const [observacionIntendenteDraft, setObservacionIntendenteDraft] = useState("");
+  const [showFormulario24374, setShowFormulario24374] = useState(false);
 
   useEffect(() => {
     setDraft(item || null);
     setObservacionIntendenteDraft("");
+    setShowFormulario24374(false);
   }, [item]);
 
   if (!draft) return null;
@@ -2475,9 +2698,13 @@ function ModalExpediente({ item, users, usersMap, onClose, onSaveField, savingFi
                   style={{ ...btnGhost, ...interactiveButtonStyle, color: C.red, borderColor: "#fecaca" }}>Eliminar expediente</button> : null}
             {onNext ? <button onClick={onNext} style={btnGhost}>Siguiente expediente</button> : null}
           </div>
-          <button onClick={onClose} {...buttonHoverHandlers} style={{ ...btnGhost, ...interactiveButtonStyle }}>Cerrar</button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => setShowFormulario24374(true)} {...buttonHoverHandlers} style={{ ...btnPrimary, ...interactiveButtonStyle }}>Formulario Ley 24.374</button>
+            <button onClick={onClose} {...buttonHoverHandlers} style={{ ...btnGhost, ...interactiveButtonStyle }}>Cerrar</button>
+          </div>
         </div>
       </div>
+      {showFormulario24374 ? <div onClick={(e) => e.stopPropagation()}><Formulario24374Modal expediente={draft} onClose={() => setShowFormulario24374(false)} /></div> : null}
     </div>
   );
 }
