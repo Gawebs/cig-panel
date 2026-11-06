@@ -7,8 +7,7 @@ Panel web interno para la gestión de expedientes de la **Dirección de Regulari
 React + Vite, **sin TypeScript**. Supabase para base de datos y storage. Deploy en Vercel.
 
 - **Repo:** https://github.com/Gawebs/cig-panel, rama `main` (antes estaba en `nxaia/cig-panel`)
-- **Producción que usa la oficina:** https://cig-panel.vercel.app. Es un proyecto Vercel de otra cuenta (`admin-80077198s-projects`) que **se publica solo con cada push a `main`**.
-- **Segunda copia:** https://cig-panel-rho.vercel.app (proyecto `nexaia-web-s-projects/cig-panel`, se publica con `vercel --prod` desde esta carpeta). Las dos usan la misma base: cualquier cambio de base tiene que salir publicado en las dos, o sea, push a `main` y además `vercel --prod`.
+- **Producción (la única, la que usa la oficina):** https://cig-panel.vercel.app. Proyecto Vercel de la cuenta `admin-80077198s-projects`, conectado a GitHub: **se publica solo con cada push a `main`**. No usar `vercel --prod` desde esta carpeta (el 06-nov-2026 se borró una segunda copia, cig-panel-rho, que se había creado así).
 - **Tablas:** `expedientes`, `expediente_planos`, `certificados_residencia`, `certificado_residencia_archivos`, `usuarios`, `panel_accesos`
 - **Storage:** bucket `planos-expedientes`
 - **Env vars:** `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, en `.env` local y en Vercel producción
@@ -70,4 +69,4 @@ Además, `nexaia-ops-agent` monitorea este proyecto y reactiva Supabase automát
 
 ## Flujo de trabajo
 
-Siempre sobre `main`. `git pull` antes de tocar nada, `npm run build` para verificar antes de pushear, y deploy con `vercel --prod` desde la carpeta del proyecto.
+Siempre sobre `main`. `git pull` antes de tocar nada y `npm run build` para verificar. Publicar = push a `main` (Vercel publica solo en cig-panel.vercel.app).
