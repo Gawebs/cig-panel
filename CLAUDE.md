@@ -7,7 +7,8 @@ Panel web interno para la gestión de expedientes de la **Dirección de Regulari
 React + Vite, **sin TypeScript**. Supabase para base de datos y storage. Deploy en Vercel.
 
 - **Repo:** https://github.com/Gawebs/cig-panel, rama `main` (antes estaba en `nxaia/cig-panel`)
-- **Producción:** https://cig-panel-rho.vercel.app
+- **Producción que usa la oficina:** https://cig-panel.vercel.app. Es un proyecto Vercel de otra cuenta (`admin-80077198s-projects`) que **se publica solo con cada push a `main`**.
+- **Segunda copia:** https://cig-panel-rho.vercel.app (proyecto `nexaia-web-s-projects/cig-panel`, se publica con `vercel --prod` desde esta carpeta). Las dos usan la misma base: cualquier cambio de base tiene que salir publicado en las dos, o sea, push a `main` y además `vercel --prod`.
 - **Tablas:** `expedientes`, `expediente_planos`, `certificados_residencia`, `certificado_residencia_archivos`, `usuarios`, `panel_accesos`
 - **Storage:** bucket `planos-expedientes`
 - **Env vars:** `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, en `.env` local y en Vercel producción
