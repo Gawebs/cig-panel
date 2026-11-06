@@ -24,9 +24,23 @@ Dashboard (con vista especial `IntendenteDashboard` para el intendente) · Exped
 
 ## Usuarios
 
-Están hardcodeados en `LOGIN_USERS` dentro de `App.jsx`, no en la base. Seis perfiles: el intendente y un usuario genérico entran sin contraseña y son de solo lectura; los cuatro perfiles del área técnica y la dirección tienen `canEdit: true` y `requiresPassword: true`.
+Están hardcodeados en `LOGIN_USERS` dentro de `App.jsx`, no en la base. Seis perfiles: el intendente y un usuario genérico son de solo lectura; los cuatro perfiles del área técnica y la dirección tienen `canEdit: true`.
 
-Para agregar o cambiar un usuario hay que editar ese array y redeployar.
+Para agregar o cambiar un usuario hay que editar ese array **y** el mapa `PERFILES` de `supabase/functions/panel-login/index.ts`, y redeployar los dos.
+
+## Seguridad de acceso (rama `seguridad-acceso`, 06-nov-2026)
+
+Hasta esa fecha la base estaba abierta: con la anon key de la página se podía leer, modificar y borrar todo, y las contraseñas vivían solo en el `localStorage` de cada navegador. Ahora:
+
+- **Todos los perfiles piden contraseña.** La pantalla manda el SHA-256 de lo que escribe el usuario a la función `panel-login` (Edge Function), que lo verifica contra `panel_usuarios.password_pbkdf2` y entrega una sesión de Supabase. La primera vez que un perfil ingresa sin contraseña guardada, la que escribe queda registrada. Si el navegador tenía guardada la contraseña vieja (`cig_panel_password_hash_cache_v1`), tiene que coincidir.
+- Cada perfil tiene una cuenta interna `<clave>@cig-brs.local` en Supabase Auth, creada por la función. Nadie la usa directamente.
+- **RLS:** las tablas de trabajo solo responden a sesiones iniciadas (`authenticated`). `panel_usuarios` y `panel_login_intentos` no tienen reglas para la página: solo las toca la función con la service role.
+- **Archivos privados:** el bucket `planos-expedientes` ya no es público. Las URLs guardadas conservan el formato `/object/public/`; un listener global (`abrirArchivoPrivado`) intercepta esos clics y abre un enlace firmado de 5 minutos.
+- **Freno:** 8 intentos fallidos por perfil en 15 minutos bloquean ese perfil por 15 minutos.
+- **Resetear una contraseña:** borrar `password_pbkdf2` de esa fila en `panel_usuarios`. El próximo ingreso registra la nueva. El botón "Reset manual admin" se sacó porque nunca funcionó.
+- **Pruebas locales:** `npx supabase start` (Docker) levanta una réplica con datos inventados (`supabase/seed.sql`). `supabase/pruebas/probar_seguridad.mjs` corre 25 pruebas. Para el panel contra la réplica: `npm run dev -- --mode prueba` con `.env.prueba.local`.
+- `supabase/migrations/20261106000000_replica_produccion.sql` es **solo para la réplica local**. Nunca hacer `supabase db push` en producción.
+- Publicación y vuelta atrás: `supabase/PUBLICAR_SEGURIDAD.md`.
 
 ## Formulario Ley 24.374 (Catastro provincial)
 

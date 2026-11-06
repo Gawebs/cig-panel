@@ -152,12 +152,12 @@ const BARRIOS = {
 };
 
 const LOGIN_USERS = [
-  { id: "gonzalo-monteros", nombre: "Gonzalo Monteros", rol: "Intendente", area: "Intendencia", tecnico: false, canEdit: false, requiresPassword: false, canAddExecutiveNotes: true },
+  { id: "gonzalo-monteros", nombre: "Gonzalo Monteros", rol: "Intendente", area: "Intendencia", tecnico: false, canEdit: false, requiresPassword: true, canAddExecutiveNotes: true },
   { id: "estela-palacios", nombre: "Estela Palacios", rol: "Directora", area: "Dirección", tecnico: false, canEdit: true, requiresPassword: true, canAddExecutiveNotes: false },
   { id: "carlos-chauvet", nombre: "Carlos Chauvet", rol: "Área técnica", area: "Técnica", tecnico: true, canEdit: true, requiresPassword: true, canAddExecutiveNotes: false },
   { id: "emmanuel-aguilar", nombre: "Emmanuel Aguilar", rol: "Agente de campo", area: "Agente de campo", tecnico: true, canEdit: true, requiresPassword: true, canAddExecutiveNotes: false },
   { id: "andres-ferrer", nombre: "Andrés Ferrer", rol: "Área técnica", area: "Técnica", tecnico: true, canEdit: true, requiresPassword: true, canAddExecutiveNotes: false },
-  { id: "usuario", nombre: "Usuario", rol: "Solo lectura", area: "Consulta", tecnico: false, canEdit: false, requiresPassword: false, canAddExecutiveNotes: false },
+  { id: "usuario", nombre: "Usuario", rol: "Solo lectura", area: "Consulta", tecnico: false, canEdit: false, requiresPassword: true, canAddExecutiveNotes: false },
 ];
 
 const MIN_PAGE_SIZE = 5;
@@ -352,6 +352,57 @@ async function hashPassword(value) {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+// Verificación de contraseña del lado del servidor (función `panel-login` de Supabase).
+async function llamarPanelLogin(cuerpo) {
+  let res;
+  try {
+    res = await fetch(`${supabaseUrl}/functions/v1/panel-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` },
+      body: JSON.stringify(cuerpo),
+    });
+  } catch {
+    throw new Error("No se pudo conectar con el servidor. Revisá la conexión e intentá de nuevo.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || "No se pudo validar el usuario.");
+  return data;
+}
+
+// Los archivos están en una carpeta privada: al tocar "Abrir" o "Descargar" se pide un enlace
+// temporal. Las direcciones guardadas siguen teniendo el formato público para no tocar los datos.
+const MARCA_ARCHIVO_PUBLICO = "/storage/v1/object/public/";
+async function abrirArchivoPrivado(href, descargar) {
+  const i = href.indexOf(MARCA_ARCHIVO_PUBLICO);
+  if (i < 0 || !supabase) return false;
+  const resto = decodeURIComponent(href.slice(i + MARCA_ARCHIVO_PUBLICO.length).split("?")[0]);
+  const corte = resto.indexOf("/");
+  const bucket = resto.slice(0, corte);
+  const path = resto.slice(corte + 1);
+  const ventana = window.open("", "_blank");
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 300, descargar ? { download: path.split("/").pop() } : undefined);
+  if (error || !data?.signedUrl) {
+    if (ventana) ventana.close();
+    window.alert("No se pudo abrir el archivo. Volvé a ingresar al panel e intentá de nuevo.");
+    return true;
+  }
+  if (ventana) ventana.location.href = data.signedUrl;
+  else window.location.assign(data.signedUrl);
+  return true;
+}
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "click",
+    (ev) => {
+      const a = ev.target instanceof Element ? ev.target.closest("a[href]") : null;
+      if (!a || !a.href.includes(MARCA_ARCHIVO_PUBLICO)) return;
+      ev.preventDefault();
+      abrirArchivoPrivado(a.href, a.hasAttribute("download"));
+    },
+    true,
+  );
 }
 
 const PASSWORD_HASH_CACHE_KEY = "cig_panel_password_hash_cache_v1";
@@ -1221,7 +1272,7 @@ function IntendenteDashboard({ data }) {
   );
 }
 
-function LoginScreen({ selectedUserId, onSelectUser, onIngresar, loginLoading, loginError, loginPassword, onPasswordChange, onOpenChangePassword, onOpenManualReset }) {
+function LoginScreen({ selectedUserId, onSelectUser, onIngresar, loginLoading, loginError, loginPassword, onPasswordChange, onOpenChangePassword }) {
   const [showPassword, setShowPassword] = useState(false);
   const selectedUser = LOGIN_USERS.find((user) => user.id === selectedUserId);
   const selectedNeedsPassword = Boolean(selectedUser?.requiresPassword);
@@ -1400,16 +1451,13 @@ function LoginScreen({ selectedUserId, onSelectUser, onIngresar, loginLoading, l
                 </button>
               </div>
               <div style={{ marginTop: 3, fontSize: 9, color: C.dim, lineHeight: 1.1 }}>
-                Para Estela, Carlos, Emmanuel y Andrés, la primera contraseña que cargues quedará registrada. Intendente y Usuario entran en modo consulta.
+                La primera contraseña que cargues en cada perfil quedará registrada.
               </div>
 
               {selectedNeedsPassword ? (
                 <div style={{ marginTop: 5, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                   <button type="button" onClick={onOpenChangePassword} style={{ ...btnGhost, padding: "5px 10px", fontSize: 11 }}>
                     Cambiar contraseña
-                  </button>
-                  <button type="button" onClick={onOpenManualReset} style={{ ...btnGhost, padding: "5px 10px", fontSize: 11 }}>
-                    Reset manual admin
                   </button>
                 </div>
               ) : null}
@@ -3163,75 +3211,17 @@ export default function App() {
 
     try {
       const usuarioClave = getLoginClaveById(selectedUser.id);
+      const incomingHash = await hashPassword(loginPassword);
 
-      if (selectedNeedsPassword) {
-        const incomingHash = await hashPassword(loginPassword);
-        const { data: panelUser, error: panelUserError } = await supabase
-          .from("panel_usuarios")
-          .select("id, nombre, usuario_clave, password_hash, password_set_at, rol, area")
-          .eq("usuario_clave", usuarioClave)
-          .maybeSingle();
+      // Si este navegador ya tenía guardada la contraseña del perfil, tiene que coincidir:
+      // así, al pasar la verificación al servidor, queda registrada la misma de siempre.
+      const cachedHash = readPasswordHashCache()[usuarioClave] || "";
+      if (cachedHash && cachedHash !== incomingHash) throw new Error("Contraseña incorrecta.");
 
-        if (panelUserError) {
-          throw new Error(panelUserError.message || "No se pudo validar el usuario.");
-        }
-
-        const cachedHashes = readPasswordHashCache();
-        const cachedHash = cachedHashes[usuarioClave] || "";
-
-        if (!panelUser) {
-          const { data: createdPanelUser, error: createPanelUserError } = await supabase
-            .from("panel_usuarios")
-            .insert({
-              nombre: selectedUser.nombre,
-              usuario_clave: usuarioClave,
-              password_hash: incomingHash,
-              password_set_at: new Date().toISOString(),
-              rol: selectedUser.rol,
-              area: selectedUser.area,
-              updated_at: new Date().toISOString(),
-            })
-            .select("id")
-            .single();
-
-          if (createPanelUserError || !createdPanelUser) {
-            throw new Error(createPanelUserError?.message || "No se pudo crear el usuario en panel_usuarios.");
-          }
-
-          writePasswordHashCache(usuarioClave, incomingHash);
-        } else {
-          const currentHash = panelUser.password_hash || cachedHash;
-
-          if (!currentHash) {
-            const { error: bootstrapPasswordError } = await supabase
-              .from("panel_usuarios")
-              .update({
-                password_hash: incomingHash,
-                password_set_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", panelUser.id);
-
-            if (bootstrapPasswordError) {
-              throw new Error(bootstrapPasswordError.message || "No se pudo registrar la contraseña inicial.");
-            }
-            writePasswordHashCache(usuarioClave, incomingHash);
-          } else if (currentHash !== incomingHash) {
-            throw new Error("Contraseña incorrecta.");
-          } else if (!panelUser.password_hash && cachedHash === incomingHash) {
-            const { error: syncPasswordError } = await supabase
-              .from("panel_usuarios")
-              .update({
-                password_hash: incomingHash,
-                password_set_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", panelUser.id);
-
-            if (!syncPasswordError) writePasswordHashCache(usuarioClave, incomingHash);
-          }
-        }
-      }
+      const resultado = await llamarPanelLogin({ accion: "ingresar", clave: usuarioClave, hash: incomingHash });
+      const { error: sessionError } = await supabase.auth.setSession({ access_token: resultado.access_token, refresh_token: resultado.refresh_token });
+      if (sessionError) throw new Error("No se pudo iniciar la sesión.");
+      writePasswordHashCache(usuarioClave, incomingHash);
 
       const entry = { nombre: selectedUser.nombre, rol: selectedUser.rol, fecha_ingreso: new Date().toISOString() };
       const insertResult = await supabase.from("panel_accesos").insert(entry);
@@ -3278,33 +3268,9 @@ export default function App() {
         throw new Error("Solo los usuarios con contraseña pueden usar esta función.");
       }
 
-      const { data: panelUser, error: panelUserError } = await supabase
-        .from("panel_usuarios")
-        .select("id, password_hash")
-        .eq("usuario_clave", usuarioClave)
-        .maybeSingle();
-
-      if (panelUserError) throw new Error(panelUserError.message || "No se pudo validar el usuario.");
-      if (!panelUser) throw new Error("El usuario no existe en la tabla panel_usuarios.");
-
-      if (passwordModalMode === "change") {
-        const currentHash = await hashPassword(currentPassword);
-        if (panelUser.password_hash && panelUser.password_hash !== currentHash) {
-          throw new Error("La contraseña actual es incorrecta.");
-        }
-      }
-
-      const nextHash = await hashPassword(nextPassword);
-      const { error: updateError } = await supabase
-        .from("panel_usuarios")
-        .update({
-          password_hash: nextHash,
-          password_set_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", panelUser.id);
-
-      if (updateError) throw new Error(updateError.message || "No se pudo guardar la contraseña.");
+      if (passwordModalMode !== "change") throw new Error("El reseteo de contraseñas lo hace el administrador del sistema.");
+      await llamarPanelLogin({ accion: "cambiar", clave: usuarioClave, hash: await hashPassword(currentPassword), hashNuevo: await hashPassword(nextPassword) });
+      writePasswordHashCache(usuarioClave, await hashPassword(nextPassword));
 
       setPasswordModalOpen(false);
       setNotice(passwordModalMode === "change" ? "Contraseña actualizada correctamente." : `Contraseña reseteada para ${targetUser.nombre}.`);
@@ -4206,7 +4172,7 @@ export default function App() {
     : null;
 
   if (!activeUser) {
-    return <LoginScreen selectedUserId={selectedLoginUserId} onSelectUser={setSelectedLoginUserId} onIngresar={handleLogin} loginLoading={loginLoading} loginError={loginError} loginPassword={loginPassword} onPasswordChange={setLoginPassword} onOpenChangePassword={() => { setPasswordModalMode("change"); setPasswordModalError(""); setPasswordModalOpen(true); }} onOpenManualReset={() => { setPasswordModalMode("reset"); setPasswordModalError(""); setPasswordModalOpen(true); }} />;
+    return <LoginScreen selectedUserId={selectedLoginUserId} onSelectUser={setSelectedLoginUserId} onIngresar={handleLogin} loginLoading={loginLoading} loginError={loginError} loginPassword={loginPassword} onPasswordChange={setLoginPassword} onOpenChangePassword={() => { setPasswordModalMode("change"); setPasswordModalError(""); setPasswordModalOpen(true); }} />;
   }
 
   return (
@@ -4245,11 +4211,10 @@ export default function App() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <div style={{ padding: "8px 12px", borderRadius: 999, border: `1px solid ${C.border}`, background: "#f8fafc", color: C.slate, fontSize: 13, fontWeight: 600 }}>{activeUser.nombre} · {activeUser.rol}</div>
-              <button onClick={() => { setActiveUser(null); setSelectedLoginUserId(LOGIN_USERS[0].id); setActiveNav("Dashboard"); setLoginError(""); setLoginPassword(""); setNotice(""); setAccessSyncStatus({ kind: "", text: "" }); }} style={btnGhost}>Salir</button>
+              <button onClick={() => { supabase?.auth.signOut(); setActiveUser(null); setSelectedLoginUserId(LOGIN_USERS[0].id); setActiveNav("Dashboard"); setLoginError(""); setLoginPassword(""); setNotice(""); setAccessSyncStatus({ kind: "", text: "" }); }} style={btnGhost}>Salir</button>
               <div style={{ fontSize: 13, color: C.muted }}>{fechaActual}</div>
               <button onClick={() => loadInitialData(true)} style={btnGhost}>{refreshing ? "Actualizando..." : "Actualizar"}</button>
               {activeUser?.canEdit ? <button onClick={() => { setPasswordModalMode("change"); setPasswordModalError(""); setPasswordModalOpen(true); }} style={btnGhost}>Cambiar contraseña</button> : null}
-              {canEdit ? <button onClick={() => { setPasswordModalMode("reset"); setPasswordModalError(""); setPasswordModalOpen(true); }} style={btnGhost}>Reset manual admin</button> : null}
               {canEdit ? <button onClick={() => setNuevoOpen(true)} style={btnPrimary}>+ Nuevo expediente</button> : null}
             </div>
           </header>
