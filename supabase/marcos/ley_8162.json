@@ -1,0 +1,49 @@
+{
+  "id": "ley_8162",
+  "nombre": "Barrio Menem BRS – Ley N° 8.162",
+  "nombre_corto": "Barrio Menem",
+  "valor_catastro": "Ley 8162",
+  "alcance": "barrio",
+  "usa_nomina_padrones": true,
+  "version": 1,
+  "config": {
+    "ley_provincial": "8.162",
+    "decreto_reglamentario": null,
+    "grupo_familiar": true,
+    "max_solicitantes_formulario": 2,
+    "plano_referencia": "67.856/2013",
+    "formularios": [
+      { "clave": "solicitud", "paso": 1, "titulo": "Formulario de solicitud de adhesión", "plantilla": "portal-Formulario_LEY_8162_Solicitud.pdf" },
+      { "clave": "ddjj", "paso": 1, "titulo": "Declaración jurada", "plantilla": "portal-Formulario_LEY_8162_DDJJ.pdf" },
+      { "clave": "relevamiento_social", "paso": 4, "titulo": "Relevamiento social", "plantilla": "portal-Formulario_LEY_24374_RelevamientoSocial.pdf" }
+    ],
+    "requisitos": [
+      { "clave": "formulario_solicitud", "paso": 1, "titulo": "Formulario de solicitud firmado", "aplica": "expediente", "formulario": "solicitud", "ayuda": "Manzana y lote según el Plano N° 67.856/2013." },
+      { "clave": "ddjj", "paso": 1, "titulo": "Declaración jurada firmada", "aplica": "expediente", "formulario": "ddjj", "ayuda": "Origen de la posesión anterior al año 2003 y fecha de inicio." },
+      { "clave": "dni", "paso": 1, "titulo": "DNI (frente y dorso)", "aplica": "persona", "roles": ["solicitante", "conyuge", "grupo_familiar"] },
+      { "clave": "cuil", "paso": 1, "titulo": "Constancia de CUIL/CUIT", "aplica": "persona", "roles": ["solicitante", "conyuge"] },
+      { "clave": "acta_matrimonio", "paso": 1, "titulo": "Acta de matrimonio certificada por el Registro Civil", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["casado", "viudo"] } },
+      { "clave": "acta_defuncion", "paso": 1, "titulo": "Acta de defunción certificada por el Registro Civil", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["viudo"] } },
+      { "clave": "sentencia_divorcio", "paso": 1, "titulo": "Sentencia de divorcio certificada por el juzgado", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["divorciado"] }, "ayuda": "O acta de matrimonio con la marginal de la sentencia, con fecha y juzgado completos." },
+      { "clave": "constancia_convivencia", "paso": 1, "titulo": "Constancia de convivencia", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["conviviente"] }, "ayuda": "Constancia policial original, acta ante escribano certificada o acta de unión convivencial del Registro Civil." },
+      { "clave": "acta_nacimiento", "paso": 1, "titulo": "Acta de nacimiento certificada (acredita el vínculo)", "aplica": "persona", "roles": ["grupo_familiar"] },
+      { "clave": "coordenadas", "paso": 2, "titulo": "Coordenadas de ubicación", "aplica": "expediente" },
+      { "clave": "croquis", "paso": 2, "titulo": "Croquis según instructivo de Catastro", "aplica": "expediente" },
+      { "clave": "fotos_inmueble", "paso": 2, "titulo": "4 fotos del inmueble (frente, contrafrente y 2 del interior)", "aplica": "expediente" },
+      { "clave": "relevamiento_social", "paso": 4, "titulo": "Relevamiento social firmado", "aplica": "expediente", "formulario": "relevamiento_social" }
+    ],
+    "pruebas_posesion": {
+      "paso": 3,
+      "descripcion": "Posesión de por lo menos 5 años antes del año 2003 (fecha exigida por la ley) y ocupación actual, con mínimo 2 pruebas distintas del año en curso. A confirmar con Carlos.",
+      "anios_previos_a": 2003,
+      "cantidad_anios": 5,
+      "incluir_anio_en_curso": true,
+      "minimo_por_anio": 1,
+      "minimo_anio_en_curso": 2,
+      "requisitos_extra": [
+        { "clave": "certificado_residencia_policial", "titulo": "Certificado de residencia policial" }
+      ],
+      "tipos_aceptados": ["servicio_impuesto"]
+    }
+  }
+}
