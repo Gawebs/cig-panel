@@ -102,3 +102,25 @@ Lo que quedaba pendiente del paso 1 se hizo en la etapa 4.
 
 ## Próximo
 Publicar siguiendo `docs/PUBLICAR.md`, alta de Banda del Río Salí, prueba con celulares reales y vigilancia del correo cuando lleguen los mails de Catastro.
+
+## EN CURSO (16-nov-2026, pausado por Gabriel): reemplazar el panel viejo por este, en la MISMA base cig-db
+Pedido de Gabriel: reemplazar cig-panel por este sistema en la misma infraestructura (base cig-db, misma cuenta de Vercel). **No pasar expedientes.** Solo quedan: las personas del ingreso (mismo nombre y contraseña) y las constancias de tenencia precaria (53, con 35 PDF). Usar el mismo logo de la muni y el mismo favicon.
+
+Hecho:
+- **Seguridad en la base real**: estaba abierto el registro libre (cualquiera podía crear cuenta y leer/borrar los 4.753 expedientes). Con OK de Gabriel se apagó (`disable_signup = true`) y se comprobó. Solo existen las 3 cuentas internas `@cig-brs.local`.
+- Revisión de solo lectura de cig-db: sin choques de nombres; zona horaria UTC; tablas viejas con política "cualquier sesión" (se cierran al cambiar).
+- Migración `20261116000000_ingreso_panel.sql`: `login_profiles` (quién aparece en el ingreso y con qué roles), `perfiles_de_ingreso` y `municipio_de_ingreso` (para la pantalla, abiertas a anon), `vincular_perfil_de_ingreso` (crea perfil y membresía según `app_metadata.perfil`), constancias importadas conservan su número.
+- Migración `20261116000100_cerrar_panel_anterior.sql`: deja tablas y archivos viejos solo para soporte (no borra nada).
+- Función `panel-login` copiada a `supabase/functions/` (la misma que está en cig-db).
+- Pantalla de ingreso por nombre + contraseña (`src/app/ingresar/ingreso-perfil.tsx`, `src/lib/panel-login.ts`), con `NEXT_PUBLIC_MUNICIPIO_INGRESO`. Mi cuenta cambia la contraseña por `panel-login` para esos usuarios.
+- Favicon del panel viejo (`src/app/icon.png`, iconos de la app) y logo de la muni en `supabase/municipios/brs-logo.png`.
+
+Roles acordados con Gabriel: estela → direccion; carlos → subdireccion + armado; andres → armado; emmanuel → relevamiento + armado; gonzalo y usuario → consulta.
+
+Falta:
+1. Agregar `logo_path` al municipio en `src/lib/sesion.ts` y mostrar el logo en el encabezado del panel.
+2. `supabase/municipios/brs.json` (slug `brs`, sigla BRS, localidades Banda del Río Salí y Lastenia con los 28 barrios en uso, leyes, logo, `perfiles_de_ingreso` con los roles de arriba) y sumar perfiles de ingreso al script de alta.
+3. Script para pasar las 53 constancias y copiar sus 35 PDF de `planos-expedientes` a `constancias`.
+4. Ensayo completo en local: cargar la réplica de cig-panel (`../cig-panel/supabase/migrations/20261106000000_replica_produccion.sql`), servir `panel-login`, probar ingreso, importación y cierre.
+5. Con OK de Gabriel ese día: aplicar migraciones a cig-db (por la API, no `db push`), alta de BRS, importación, cerrar el panel viejo y cambiar Vercel (proyecto cig-panel → este código, variables `NEXT_PUBLIC_*`). En cig-db NO activar requisitos de contraseña (la función `panel-login` crea usuarios con clave hex en minúsculas).
+6. Decidir con Gabriel si se mantiene el repo `Gawebs/cig-dominial` o el código pasa a `Gawebs/cig-panel`.

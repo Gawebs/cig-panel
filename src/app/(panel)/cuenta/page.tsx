@@ -1,6 +1,7 @@
 import { obtenerContexto } from '@/lib/sesion'
 import { ROLES } from '@/lib/textos'
 import { FormClave } from './form-clave'
+import { FormClavePerfil } from './form-clave-perfil'
 
 export default async function MiCuenta() {
   const ctx = await obtenerContexto()
@@ -12,7 +13,7 @@ export default async function MiCuenta() {
         <p><span className="etiqueta">Correo</span><br />{ctx.email}</p>
         <p><span className="etiqueta">Municipio y roles</span><br />{ctx.municipio?.nombre} · {ctx.roles.map((r) => ROLES[r]).join(', ')}</p>
       </div>
-      <FormClave />
+      {/^[a-z0-9-]+@cig-brs\.local$/.test(ctx.email) ? <FormClavePerfil perfil={ctx.email.split('@')[0]} /> : <FormClave />}
     </div>
   )
 }
