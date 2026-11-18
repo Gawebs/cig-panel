@@ -30,8 +30,12 @@ const esquemaApertura = z.object({
   estado_civil: z.enum(['', 'soltero', 'casado', 'viudo', 'divorciado', 'conviviente']),
   padron: opcional(20),
   padron_confirmacion: opcional(20),
-  // Datos leídos del DNI (campos ocultos)
-  cuil: opcional(13).refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL leído no es válido.'),
+  // CUIL y domicilio: se completan solos al escanear el DNI, o a mano
+  cuil: opcional(13)
+    .transform((v) => (v && /^\d{11}$/.test(v) ? `${v.slice(0, 2)}-${v.slice(2, 10)}-${v.slice(10)}` : v))
+    .refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
+  telefono: opcional(30),
+  ciudad: opcional(80),
   sexo: z.enum(['', 'F', 'M', 'X']).optional(),
   fecha_nacimiento: opcional(10).refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), 'Fecha de nacimiento inválida.'),
   domicilio: opcional(160),
@@ -73,6 +77,11 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
     .eq('rol', 'solicitante')
     .eq('solicitante_numero', 1)
     .single()
+
+  // Teléfono y ciudad no los recibe abrir_expediente: se guardan aparte en el titular.
+  if (titular?.id && (d.telefono || d.ciudad)) {
+    await supabase.from('case_people').update({ telefono: d.telefono ?? null, ciudad: d.ciudad ?? null }).eq('id', titular.id)
+  }
 
   revalidatePath('/')
   // La pantalla sube las fotos del DNI (si hay) y después navega a la ficha.

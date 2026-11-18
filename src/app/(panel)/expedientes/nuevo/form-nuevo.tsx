@@ -17,7 +17,7 @@ export function FormNuevo({ leyes }: { leyes: LeyOpcion[] }) {
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const fotosDni = useRef<{ frente?: File; dorso?: File }>({})
-  const [leido, setLeido] = useState({ cuil: '', sexo: '', fecha_nacimiento: '', domicilio: '' })
+  const [leido, setLeido] = useState({ cuil: v.cuil ?? '', sexo: v.sexo ?? '', fecha_nacimiento: v.fecha_nacimiento ?? '', domicilio: v.domicilio ?? '' })
   const [origen, setOrigen] = useState<Record<string, string>>({})
   const [aviso, setAviso] = useState('')
 
@@ -53,10 +53,8 @@ export function FormNuevo({ leyes }: { leyes: LeyOpcion[] }) {
 
   return (
     <form ref={formRef} action={accion} className="grid gap-5">
-      <input type="hidden" name="cuil" value={leido.cuil} />
       <input type="hidden" name="sexo" value={leido.sexo} />
       <input type="hidden" name="fecha_nacimiento" value={leido.fecha_nacimiento} />
-      <input type="hidden" name="domicilio" value={leido.domicilio} />
       <input type="hidden" name="origen_datos" value={JSON.stringify(origen)} />
       <fieldset className="grid gap-3 sm:grid-cols-3">
         <legend className="sr-only">Ley</legend>
@@ -92,7 +90,12 @@ export function FormNuevo({ leyes }: { leyes: LeyOpcion[] }) {
                   {ESTADOS_CIVILES.map((e) => <option key={e.valor} value={e.valor}>{e.texto}</option>)}
                 </select>
               </label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">CUIL</span><input id="cuil" name="cuil" value={leido.cuil} onChange={(e) => setLeido((l) => ({ ...l, cuil: e.target.value }))} inputMode="numeric" placeholder="20-12345678-3" className="campo" /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">Teléfono</span><input id="telefono" name="telefono" defaultValue={v.telefono} inputMode="tel" className="campo" /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">Domicilio</span><input id="domicilio" name="domicilio" value={leido.domicilio} onChange={(e) => setLeido((l) => ({ ...l, domicilio: e.target.value }))} className="campo" /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">Ciudad</span><input id="ciudad" name="ciudad" defaultValue={v.ciudad} className="campo" /></label>
             </div>
+            <p className="-mt-1 text-sm text-tenue">Si escaneás el DNI, el CUIL y el domicilio se completan solos. Estos datos van a la solicitud de Catastro.</p>
           </section>
 
           <section className="tarjeta grid gap-4 p-5">

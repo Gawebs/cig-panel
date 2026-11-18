@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { obtenerContexto } from '@/lib/sesion'
 import { createClient } from '@/lib/supabase/server'
-import { plantillaDe, valoresDesdeFicha, type FichaExpediente, type FichaPersona } from '@/lib/formularios/plantillas'
+import { PLANTILLAS, plantillaDe, valoresDesdeFicha, type FichaExpediente, type FichaPersona } from '@/lib/formularios/plantillas'
 import { observacionesEfectivas, type Observaciones } from '@/lib/relevamiento/observaciones'
 import { EditorFormulario } from './editor'
 
 const EDITABLES = ['en_armado', 'devuelto', 'listo_para_revisar', 'observado']
+// Orden en que se completan los formularios; al terminar uno, "Continuar" lleva al siguiente de la misma ley.
+const ORDEN = ['solicitud', 'ddjj', 'anexo_i', 'relevamiento_social']
 
 export default async function PaginaFormulario({ params }: { params: Promise<{ id: string; clave: string }> }) {
   const { id, clave } = await params
@@ -62,6 +64,11 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
   const impreso = ((exp.formularios_impresos ?? {}) as Record<string, { huella: string; fecha: string }>)[clave] ?? null
   const editable = EDITABLES.includes(exp.estado) && ctx.roles.some((r) => ['armado', 'subdireccion', 'direccion', 'relevamiento'].includes(r))
 
+  const siguienteClave = ORDEN.slice(ORDEN.indexOf(clave) + 1).find((c) => PLANTILLAS[`${exp.framework_id}/${c}`])
+  const siguiente = siguienteClave
+    ? { href: `/expedientes/${id}/formularios/${siguienteClave}`, texto: `Continuar: ${PLANTILLAS[`${exp.framework_id}/${siguienteClave}`].titulo}` }
+    : { href: `/expedientes/${id}`, texto: 'Terminar y volver al expediente' }
+
   return (
     <div className="grid gap-4">
       <div>
@@ -71,7 +78,7 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
           Es el formulario original de Catastro. Los datos salen de la ficha del expediente: si corregís algo acá, se corrige en la ficha y en todos los formularios.
         </p>
       </div>
-      <EditorFormulario expedienteId={id} plantilla={plantilla} valoresFicha={valores} editable={editable} impreso={impreso} documentosImagen={documentosImagen} />
+      <EditorFormulario expedienteId={id} plantilla={plantilla} valoresFicha={valores} editable={editable} impreso={impreso} documentosImagen={documentosImagen} siguiente={siguiente} />
     </div>
   )
 }
