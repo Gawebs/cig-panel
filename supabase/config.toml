@@ -185,7 +185,9 @@ enable_manual_linking = false
 minimum_password_length = 10
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
-password_requirements = "lower_upper_letters_digits"
+# Sin requisito de mayúsculas: la función panel-login crea las cuentas internas con una clave hex (minúsculas y números).
+# Las contraseñas del personal de BRS viven en panel_usuarios, no en Supabase Auth.
+password_requirements = ""
 
 # Configure passkey sign-ins.
 # [auth.passkey]

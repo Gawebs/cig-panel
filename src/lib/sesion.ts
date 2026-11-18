@@ -13,6 +13,7 @@ export interface Municipio {
   sigla: string
   tipo: 'municipio' | 'comuna'
   color_principal: string | null
+  logo_path: string | null
 }
 
 export interface Contexto {
@@ -41,7 +42,7 @@ export const obtenerContexto = cache(async (): Promise<Contexto> => {
     supabase.from('profiles').select('nombre, email, activo').eq('id', user.id).maybeSingle(),
     supabase
       .from('memberships')
-      .select('roles, municipalities(id, nombre, sigla, tipo, color_principal)')
+      .select('roles, municipalities(id, nombre, sigla, tipo, color_principal, logo_path)')
       .eq('user_id', user.id),
     supabase.from('platform_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
   ])

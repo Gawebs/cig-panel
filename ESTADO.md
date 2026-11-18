@@ -117,10 +117,16 @@ Hecho:
 
 Roles acordados con Gabriel: estela → direccion; carlos → subdireccion + armado; andres → armado; emmanuel → relevamiento + armado; gonzalo y usuario → consulta.
 
-Falta:
-1. Agregar `logo_path` al municipio en `src/lib/sesion.ts` y mostrar el logo en el encabezado del panel.
-2. `supabase/municipios/brs.json` (slug `brs`, sigla BRS, localidades Banda del Río Salí y Lastenia con los 28 barrios en uso, leyes, logo, `perfiles_de_ingreso` con los roles de arriba) y sumar perfiles de ingreso al script de alta.
-3. Script para pasar las 53 constancias y copiar sus 35 PDF de `planos-expedientes` a `constancias`.
-4. Ensayo completo en local: cargar la réplica de cig-panel (`../cig-panel/supabase/migrations/20261106000000_replica_produccion.sql`), servir `panel-login`, probar ingreso, importación y cierre.
-5. Con OK de Gabriel ese día: aplicar migraciones a cig-db (por la API, no `db push`), alta de BRS, importación, cerrar el panel viejo y cambiar Vercel (proyecto cig-panel → este código, variables `NEXT_PUBLIC_*`). En cig-db NO activar requisitos de contraseña (la función `panel-login` crea usuarios con clave hex en minúsculas).
-6. Decidir con Gabriel si se mantiene el repo `Gawebs/cig-dominial` o el código pasa a `Gawebs/cig-panel`.
+Hecho el 18-nov (ensayo completo en local, sobre la réplica de cig-panel con datos inventados):
+- Logo de la muni en el encabezado y en el ingreso; favicon del panel anterior.
+- `supabase/municipios/brs.json` (slug `brs`, 23 barrios en uso, 3 leyes, plazo 10 hábiles, 6 personas de ingreso con sus roles) y el script de alta ya carga `perfiles_de_ingreso`.
+- `scripts/importar-constancias-panel-anterior.mjs`: pasa constancias con su número original y copia los PDF; se puede repetir sin duplicar.
+- Probado: ingreso por nombre con la función real `panel-login` (contraseña equivocada rechazada, primera contraseña registrada), constancias pasadas y visibles, cierre del panel anterior (después del cierre ya no se ven sus tablas ni archivos).
+- Vercel: el proyecto del panel está en la cuenta `admin-80077198s-projects`, a la que el CLI de esta PC no tiene acceso. Se publica igual subiendo el código al repo `Gawebs/cig-panel` (Vercel publica solo). `vercel.json` fuerza Next.js, `next.config.ts` acepta las variables `VITE_*` que ya tiene ese proyecto y `.env.production` fija `NEXT_PUBLIC_MUNICIPIO_INGRESO=brs`.
+
+Falta (con OK de Gabriel), en este orden:
+1. Aplicar las migraciones a cig-db por la API, **menos** `cerrar_panel_anterior` (si se aplica antes, el panel viejo queda vacío).
+2. `alta-municipio.mjs brs.json --confirmar` y `importar-constancias-panel-anterior.mjs brs --confirmar` contra cig-db.
+3. En `Gawebs/cig-panel`: guardar el código viejo en la rama `panel-anterior` y reemplazar `main` por este código (Vercel publica solo; si el build falla, sigue el panel viejo).
+4. Probar el panel nuevo publicado, volver a correr la importación (por constancias cargadas en el medio) y recién ahí aplicar `cerrar_panel_anterior`.
+5. Decidir si se borra el repo `Gawebs/cig-dominial` (quedaría duplicado).

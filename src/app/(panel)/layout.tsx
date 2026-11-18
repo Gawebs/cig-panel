@@ -26,7 +26,12 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       <header className="degrade text-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-lg bg-white/15 text-lg font-bold">{ctx.municipio.sigla}</span>
+            {ctx.municipio.logo_path ? (
+              // eslint-disable-next-line @next/next/no-img-element -- logo del municipio
+              <img src={ctx.municipio.logo_path} alt="" className="size-11 rounded-lg bg-white/90 object-contain p-0.5" />
+            ) : (
+              <span className="grid size-10 place-items-center rounded-lg bg-white/15 text-lg font-bold">{ctx.municipio.sigla}</span>
+            )}
             <span>
               <span className="block text-xs uppercase tracking-wider opacity-85">Regularización dominial</span>
               <span className="block font-titulo text-lg leading-tight">{ctx.municipio.nombre}</span>

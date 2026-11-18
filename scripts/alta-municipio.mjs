@@ -48,6 +48,10 @@ for (const u of m.usuarios ?? []) {
   if (!u.roles?.length || u.roles.some((r) => !ROLES.includes(r))) errores.push(`usuario ${u.email}: roles válidos son ${ROLES.join(', ')}`)
 }
 if (m.logo && !existsSync(m.logo)) errores.push(`logo: no existe el archivo ${m.logo}`)
+for (const p of m.perfiles_de_ingreso ?? []) {
+  if (!/^[a-z0-9-]+$/.test(p.usuario_clave ?? '')) errores.push(`perfil ${p.nombre}: usuario_clave inválido`)
+  if (!p.roles?.length || p.roles.some((r) => !ROLES.includes(r))) errores.push(`perfil ${p.nombre}: roles válidos son ${ROLES.join(', ')}`)
+}
 if (errores.length) {
   console.error('Revisá el archivo:\n- ' + errores.join('\n- '))
   process.exit(1)
@@ -57,6 +61,9 @@ console.log(`Base de destino: ${url}`)
 console.log(`${m.tipo === 'comuna' ? 'Comuna' : 'Municipio'}: ${m.nombre} (${m.sigla}) · leyes: ${m.leyes.join(', ')}`)
 console.log(`Localidades: ${(m.localidades ?? []).map((l) => `${l.nombre} (${l.barrios?.length ?? 0} barrios)`).join(', ') || 'ninguna'}`)
 console.log(`Usuarios: ${(m.usuarios ?? []).map((u) => `${u.email} [${u.roles.join('+')}]`).join(', ') || 'ninguno'}`)
+if (m.perfiles_de_ingreso?.length) {
+  console.log(`Ingreso por nombre: ${m.perfiles_de_ingreso.map((p) => `${p.nombre} [${p.roles.join('+')}]`).join(', ')}`)
+}
 if (!confirmar) {
   console.log('\nNo se cambió nada. Para hacerlo, repetí el comando con --confirmar.')
   process.exit(0)
@@ -111,7 +118,15 @@ for (const l of m.localidades ?? []) {
   }
 }
 
-// 6. Usuarios
+// 6. Personas que entran eligiendo su nombre (contraseña en panel_usuarios, función panel-login)
+if (m.perfiles_de_ingreso?.length) {
+  await ok(db.from('login_profiles').upsert(m.perfiles_de_ingreso.map((p) => ({
+    usuario_clave: p.usuario_clave, municipality_id: muni, nombre: p.nombre, rol_texto: p.rol_texto ?? '',
+    roles: p.roles, orden: p.orden ?? 0, activo: p.activo ?? true,
+  }))), 'perfiles de ingreso')
+}
+
+// 7. Usuarios con correo
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
 const provisoria = () => {
   // Cumple la regla de la base: 10+ caracteres con mayúsculas, minúsculas y números.

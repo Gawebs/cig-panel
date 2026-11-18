@@ -1,0 +1,40 @@
+{
+  "_comentario": "Banda del Río Salí. Barrios tomados de los que se usaban en el panel anterior (sin pasar expedientes). El personal entra eligiendo su nombre, con la contraseña de siempre (función panel-login).",
+  "nombre": "Municipalidad de Banda del Río Salí",
+  "slug": "brs",
+  "sigla": "BRS",
+  "tipo": "municipio",
+  "departamento": "Cruz Alta",
+  "color_principal": "#13a07a",
+  "logo": "supabase/municipios/brs-logo.png",
+  "area_nombre": "Dirección de Regularización Dominial y Hábitat",
+  "secretaria_nombre": "Secretaría de Gobierno",
+  "correo_catastro": "",
+  "plazo_catastro_dias": 10,
+  "plazo_catastro_tipo": "habiles",
+  "leyes": ["ley_pierri", "ley_5670", "ley_8162"],
+  "localidades": [
+    {
+      "nombre": "Banda del Río Salí",
+      "barrios": [
+        "Alberdi", "La Milagrosa", "Ampliación La Milagrosa", "San Miguel Arcángel (260 viviendas)", "Santo Cristo",
+        "Santo Cristo 2", "San Antonio del Bajo", "San Antonio del Alto", "San Ramón 1", "200 Viviendas", "150 Viviendas",
+        "136 Viviendas (SMATA)", "La Costanera", "San Jorge", "Presidente Menem", "Presidente Perón", "Kilómetro 11",
+        "Aeropuerto", "Unión y Progreso", "San Juan"
+      ]
+    },
+    {
+      "nombre": "Lastenia",
+      "barrios": ["Villa Lastenia", "La Milagrosa (Lastenia)", "El Polígono"]
+    }
+  ],
+  "perfiles_de_ingreso": [
+    { "usuario_clave": "gonzalo", "nombre": "Gonzalo Monteros", "rol_texto": "Intendente", "roles": ["consulta"], "orden": 1 },
+    { "usuario_clave": "estela", "nombre": "Estela Palacios", "rol_texto": "Directora", "roles": ["direccion"], "orden": 2 },
+    { "usuario_clave": "carlos", "nombre": "Carlos Chauvet", "rol_texto": "Subdirección", "roles": ["subdireccion", "armado"], "orden": 3 },
+    { "usuario_clave": "andres", "nombre": "Andrés Ferrer", "rol_texto": "Área técnica", "roles": ["armado"], "orden": 4 },
+    { "usuario_clave": "emmanuel", "nombre": "Emmanuel Aguilar", "rol_texto": "Agente de campo", "roles": ["relevamiento", "armado"], "orden": 5 },
+    { "usuario_clave": "usuario", "nombre": "Usuario", "rol_texto": "Solo lectura", "roles": ["consulta"], "orden": 6 }
+  ],
+  "usuarios": []
+}

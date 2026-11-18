@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next'
 
-const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+// En el proyecto de Vercel del panel anterior las variables se llaman VITE_*: se aceptan las dos.
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
+const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? ''
+const supabase = SUPABASE_URL
 const supabaseWs = supabase.replace(/^http/, 'ws')
 const desarrollo = process.env.NODE_ENV !== 'production'
 
@@ -24,6 +27,10 @@ const politica = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: SUPABASE_ANON,
+  },
   async headers() {
     return [
       {
