@@ -268,6 +268,10 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                   { etiqueta: `${quien}: nombre`, valor: p.nombre },
                   { etiqueta: `${quien}: DNI`, valor: p.dni },
                   { etiqueta: `${quien}: CUIL`, valor: p.cuil },
+                  ...(p.rol === 'solicitante' ? [
+                    { etiqueta: `${quien}: teléfono`, valor: p.telefono },
+                    { etiqueta: `${quien}: correo`, valor: p.correo },
+                  ] : []),
                 ]
               }),
               { etiqueta: 'Domicilio del inmueble', valor: exp.domicilio_inmueble },

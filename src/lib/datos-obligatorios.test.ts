@@ -3,7 +3,7 @@ import { datosFaltantes, type ExpedienteDatos, type PersonaDatos } from './datos
 
 const persona = (p: Partial<PersonaDatos>): PersonaDatos => ({
   rol: 'solicitante', solicitante_numero: 1, apellido: 'PEREZ', nombre: 'Ana', dni: '30123456', cuil: '27-30123456-5',
-  telefono: '381', domicilio: 'Calle 1', ciudad: 'BRS', ...p,
+  telefono: '381', correo: 'ana@gmail.com', domicilio: 'Calle 1', ciudad: 'BRS', ...p,
 })
 const exp = (e: Partial<ExpedienteDatos>): ExpedienteDatos => ({
   framework_id: 'ley_pierri', padron: '123', domicilio_inmueble: 'Calle 1', origen_posesion: 'compra',
@@ -22,9 +22,9 @@ describe('datos obligatorios', () => {
     expect(datosFaltantes(exp({ origen_posesion: 'otro' }), [persona({})]).map((f) => f.texto)).toEqual(['Detalle del origen de la posesión'])
   })
   it('junta lo que falta de cada persona en un renglón', () => {
-    const t = datosFaltantes(exp({}), [persona({ dni: null, cuil: '', telefono: null }), persona({ rol: 'conyuge', cuil: null, telefono: null, domicilio: null, ciudad: null })])
+    const t = datosFaltantes(exp({}), [persona({ dni: null, cuil: '', telefono: null, correo: null }), persona({ rol: 'conyuge', cuil: null, telefono: null, domicilio: null, ciudad: null })])
     expect(t.map((f) => f.texto)).toEqual([
-      'PEREZ Ana (Solicitante 1): falta DNI, CUIL, teléfono',
+      'PEREZ Ana (Solicitante 1): falta DNI, CUIL, teléfono, correo',
       'PEREZ Ana (Cónyuge del solicitante 1): falta CUIL',
     ])
   })

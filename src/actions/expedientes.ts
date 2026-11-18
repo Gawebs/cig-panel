@@ -35,6 +35,7 @@ const esquemaApertura = z.object({
     .transform((v) => (v && /^\d{11}$/.test(v) ? `${v.slice(0, 2)}-${v.slice(2, 10)}-${v.slice(10)}` : v))
     .refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
   telefono: opcional(30),
+  correo: opcional(120).refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), 'El correo no es válido: revisalo (ejemplo: nombre@gmail.com).'),
   ciudad: opcional(80),
   sexo: z.enum(['', 'F', 'M', 'X']).optional(),
   fecha_nacimiento: opcional(10).refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), 'Fecha de nacimiento inválida.'),
@@ -78,9 +79,9 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
     .eq('solicitante_numero', 1)
     .single()
 
-  // Teléfono y ciudad no los recibe abrir_expediente: se guardan aparte en el titular.
-  if (titular?.id && (d.telefono || d.ciudad)) {
-    await supabase.from('case_people').update({ telefono: d.telefono ?? null, ciudad: d.ciudad ?? null }).eq('id', titular.id)
+  // Teléfono, correo y ciudad no los recibe abrir_expediente: se guardan aparte en el titular.
+  if (titular?.id && (d.telefono || d.ciudad || d.correo)) {
+    await supabase.from('case_people').update({ telefono: d.telefono ?? null, ciudad: d.ciudad ?? null, correo: d.correo ?? null }).eq('id', titular.id)
   }
 
   revalidatePath('/')
@@ -97,6 +98,7 @@ const esquemaPersona = z.object({
   dni: opcional(8).refine((v) => !v || /^\d{7,8}$/.test(v), 'El DNI tiene que tener 7 u 8 números, sin puntos.'),
   cuil: opcional(13).refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
   telefono: opcional(30),
+  correo: opcional(120).refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), 'El correo no es válido: revisalo (ejemplo: nombre@gmail.com).'),
   domicilio: opcional(160),
   ciudad: opcional(80),
   estado_civil: z.enum(['', 'soltero', 'casado', 'viudo', 'divorciado', 'conviviente']).optional().transform((v) => (v === undefined ? undefined : v || null)),

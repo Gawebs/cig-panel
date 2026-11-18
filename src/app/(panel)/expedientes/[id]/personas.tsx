@@ -16,6 +16,7 @@ export type PersonaFila = {
   dni: string | null
   cuil: string | null
   telefono: string | null
+  correo?: string | null
   domicilio: string | null
   ciudad: string | null
   estado_civil: string | null
@@ -26,7 +27,7 @@ export type PersonaFila = {
 }
 
 const VACIA: Omit<PersonaFila, 'id' | 'rol'> = {
-  solicitante_numero: 1, apellido: '', nombre: '', dni: null, cuil: null, telefono: null,
+  solicitante_numero: 1, apellido: '', nombre: '', dni: null, cuil: null, telefono: null, correo: null,
   domicilio: null, ciudad: null, estado_civil: null, vinculo: null, ocupacion: null,
 }
 
@@ -99,6 +100,7 @@ function FormPersona({ expedienteId, municipioId, persona, onListo }: { expedien
           <input id={`${clave}-sn`} name="solicitante_numero" type="number" min={1} max={10} defaultValue={p.solicitante_numero} className="campo" />
         </label>
         {!esFamiliar && <label className="grid gap-1"><span className="text-sm font-semibold">Teléfono</span><input id={`${clave}-tel`} name="telefono" defaultValue={p.telefono ?? ''} inputMode="tel" className="campo" /></label>}
+        {!esFamiliar && <label className="grid gap-1"><span className="text-sm font-semibold">Correo</span><input id={`${clave}-correo`} name="correo" type="email" defaultValue={p.correo ?? ''} placeholder="nombre@gmail.com" className="campo" /></label>}
         {esSolicitante && (
           <>
             <label className="grid gap-1"><span className="text-sm font-semibold">Domicilio (del DNI)</span><input id={`${clave}-dom`} name="domicilio" defaultValue={p.domicilio ?? ''} className="campo" /></label>

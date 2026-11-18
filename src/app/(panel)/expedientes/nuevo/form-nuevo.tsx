@@ -92,10 +92,11 @@ export function FormNuevo({ leyes }: { leyes: LeyOpcion[] }) {
               </label>
               <label className="grid gap-1.5"><span className="text-sm font-semibold">CUIL</span><input id="cuil" name="cuil" value={leido.cuil} onChange={(e) => setLeido((l) => ({ ...l, cuil: e.target.value }))} inputMode="numeric" placeholder="20-12345678-3" className="campo" /></label>
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Teléfono</span><input id="telefono" name="telefono" defaultValue={v.telefono} inputMode="tel" className="campo" /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">Correo</span><input id="correo" name="correo" type="email" defaultValue={v.correo} placeholder="nombre@gmail.com" className="campo" /></label>
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Domicilio</span><input id="domicilio" name="domicilio" value={leido.domicilio} onChange={(e) => setLeido((l) => ({ ...l, domicilio: e.target.value }))} className="campo" /></label>
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Ciudad</span><input id="ciudad" name="ciudad" defaultValue={v.ciudad} className="campo" /></label>
             </div>
-            <p className="-mt-1 text-sm text-tenue">Si escaneás el DNI, el CUIL y el domicilio se completan solos. Estos datos van a la solicitud de Catastro.</p>
+            <p className="-mt-1 text-sm text-tenue">Si escaneás el DNI, el CUIL y el domicilio se completan solos. Estos datos van a la solicitud de Catastro; el teléfono y el correo los pide el portal al presentar.</p>
           </section>
 
           <section className="tarjeta grid gap-4 p-5">

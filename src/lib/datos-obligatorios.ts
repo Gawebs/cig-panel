@@ -18,6 +18,7 @@ export interface PersonaDatos {
   dni: string | null
   cuil: string | null
   telefono: string | null
+  correo?: string | null
   domicilio: string | null
   ciudad: string | null
 }
@@ -55,6 +56,7 @@ export function datosFaltantes(exp: ExpedienteDatos, personas: PersonaDatos[]): 
       if (vacio(p.domicilio)) faltan.push('domicilio')
       if (vacio(p.ciudad)) faltan.push('ciudad')
       if (p.solicitante_numero === 1 && vacio(p.telefono)) faltan.push('teléfono')
+      if (p.solicitante_numero === 1 && vacio(p.correo)) faltan.push('correo')
     }
     if (p.rol === 'grupo_familiar' && !conGrupoFamiliar) continue
     if (faltan.length) f.push({ texto: `${quien}: falta ${faltan.join(', ')}`, donde: 'personas' })
