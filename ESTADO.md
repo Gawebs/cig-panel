@@ -119,3 +119,4 @@ Pendiente:
 
 ## Decisión 18-nov-2026: plan Pro de cig-db
 Gabriel decidió esperar el pago de la Municipalidad para pasar cig-db a Supabase Pro (no se pausa y trae respaldos diarios). Hasta entonces la base sigue en plan gratuito y se puede pausar a los 7 días sin uso; si pasa, restaurar con la Management API (`POST /v1/projects/{ref}/restore`).
+**Latido diario (18-nov-2026):** cron de Vercel (`vercel.json`, 12:00 UTC = 9:00 Argentina) que llama a `/api/latido`, que a su vez llama a la función `latido()` de la base: actualiza una sola fila (`public.latido`, sin lectura posible desde afuera) para que haya escritura todos los días. Probado en producción. No es seguro que alcance para evitar la pausa; para controlarlo, mirar `ultimo` y `veces` en la tabla `latido`.
