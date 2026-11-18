@@ -119,6 +119,8 @@ export interface ItemChecklist {
   completo: boolean
   /** Explicación cuando hay documentos cargados pero no alcanzan (por ejemplo, del mismo tipo). */
   aviso?: string
+  /** Dato escrito en la ficha que cumple el requisito sin subir un archivo (las coordenadas). */
+  deFicha?: string
 }
 
 export interface EstadoPaso {
@@ -199,11 +201,18 @@ function contar(
   ).length
 }
 
+/** Coordenadas como las da Google Maps: -26.832206,-65.195481 */
+export function coordenadasValidas(v: string | null | undefined): boolean {
+  return Boolean(v && /^-?\d{1,2}\.\d+,\s?-?\d{1,3}\.\d+$/.test(v.trim()))
+}
+
 export function armarChecklist(params: {
   config: MarcoConfig
   personas: PersonaExpediente[]
   documentos: DocumentoExpediente[]
   fechaApertura: Date
+  /** Coordenadas escritas en la ficha: con eso alcanza, la hoja se arma sola en el PDF del paso 2. */
+  coordenadas?: string | null
 }): Checklist {
   const { config, personas, documentos, fechaApertura } = params
   const items: ItemChecklist[] = []
@@ -229,6 +238,7 @@ export function armarChecklist(params: {
     if (req.aplica === 'expediente') {
       if (!cumpleCondicion(req, null, cantidadSolicitantes)) continue
       const cargados = contar(documentos, req.clave)
+      const escritas = req.clave === 'coordenadas' && coordenadasValidas(params.coordenadas) ? params.coordenadas!.trim() : undefined
       items.push({
         id: req.clave,
         paso: req.paso,
@@ -237,7 +247,8 @@ export function armarChecklist(params: {
         ayuda: req.ayuda,
         cantidadMinima: 1,
         cantidadCargada: cargados,
-        completo: cargados >= 1,
+        completo: cargados >= 1 || Boolean(escritas),
+        deFicha: escritas,
       })
       continue
     }

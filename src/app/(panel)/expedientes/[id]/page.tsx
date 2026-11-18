@@ -69,6 +69,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
     personas: (personas ?? []) as PersonaExpediente[],
     documentos: documentos ?? [],
     fechaApertura: new Date(`${exp.fecha_apertura}T12:00:00`),
+    coordenadas: exp.coordenadas,
   })
 
   const faltanDatos = datosFaltantes(exp as unknown as ExpedienteDatos, (personas ?? []) as unknown as PersonaDatos[])
@@ -188,6 +189,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                     numeroInterno={exp.numero_interno}
                     paso={p.paso}
                     completo={p.estado === 'completo'}
+                    hojaCoordenadas={p.items.find((i) => i.deFicha)?.deFicha}
                     documentos={p.items.flatMap((i) =>
                       (documentos ?? [])
                         .filter((d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true))
@@ -203,12 +205,17 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                           {i.personaNombre && <span className="block text-sm text-tenue">{i.personaNombre}</span>}
                           {i.ayuda && <span className="block text-sm text-tenue">{i.ayuda}</span>}
                           {i.aviso && <span className="block text-sm font-semibold text-aviso">{i.aviso}</span>}
+                          {i.requisito === 'coordenadas' && (
+                            i.deFicha
+                              ? <span className="block text-sm text-ok">Escritas en Inmueble: {i.deFicha}. Van solas en el PDF del paso 2, no hace falta subir nada.</span>
+                              : <span className="block text-sm text-tenue">Escribilas en <a href="#inmueble" className="font-semibold text-azul hover:underline">Inmueble</a> (como las da Google Maps) y listo: no hace falta subir un archivo.</span>
+                          )}
                           {FORMULARIO_DE[i.requisito] && ley.config.formularios.some((f) => f.clave === FORMULARIO_DE[i.requisito]) && (
                             <Link href={`/expedientes/${id}/formularios/${FORMULARIO_DE[i.requisito]}`} className="mt-1 inline-block text-sm font-semibold text-azul hover:underline">
                               Ver, corregir e imprimir el formulario →
                             </Link>
                           )}
-                          <CargaDocumento
+                          {!(i.requisito === 'coordenadas' && !(documentos ?? []).some((d) => d.requisito === 'coordenadas')) && <CargaDocumento
                             expedienteId={id}
                             municipioId={exp.municipality_id}
                             paso={i.paso}
@@ -220,7 +227,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                             documentos={(documentos ?? []).filter(
                               (d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true),
                             )}
-                          />
+                          />}
                         </div>
                         <span className={`shrink-0 text-sm font-semibold ${i.completo ? 'text-ok' : 'text-error'}`}>
                           {i.completo ? 'Cargado' : i.cantidadMinima > 1 ? `${i.cantidadCargada} de ${i.cantidadMinima}` : 'Falta'}

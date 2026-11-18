@@ -138,3 +138,17 @@ describe('Estado general', () => {
     expect(lleno.pasos.every((p) => p.estado === 'completo')).toBe(true)
   })
 })
+
+describe('Coordenadas escritas en la ficha', () => {
+  const item = (coordenadas?: string | null) =>
+    armarChecklist({ config: configPierri, personas: [titular('soltero')], documentos: [], fechaApertura: apertura, coordenadas }).pasos.flatMap((p) => p.items).find((i) => i.requisito === 'coordenadas')!
+  it('con coordenadas válidas el requisito queda cumplido sin subir archivo', () => {
+    const i = item('-26.832206,-65.195481')
+    expect(i.completo).toBe(true)
+    expect(i.deFicha).toBe('-26.832206,-65.195481')
+  })
+  it('sin coordenadas o mal escritas sigue faltando', () => {
+    expect(item(null).completo).toBe(false)
+    expect(item('frente a la plaza').completo).toBe(false)
+  })
+})
