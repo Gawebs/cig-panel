@@ -116,3 +116,6 @@ Pendiente:
 - El repo `Gawebs/cig-panel` queda **público** (decisión de Gabriel, 18-nov): al pasarlo a privado, Vercel Hobby (cuenta admin@nxaia.com) bloquea los deploys porque el autor de los commits (Gawebs) no es miembro, y sumar miembros exige Pro. GitHub Pages quedó apagado. Si se pasa Vercel a Pro, se puede volver a privado.
 - Decidir si se borra el repo duplicado `Gawebs/cig-dominial`.
 - El workflow de keep-alive del panel anterior (`.github/workflows`) no está en el código nuevo; cig-db sigue en plan gratuito y se pausa a los 7 días sin uso.
+
+## Decisión 18-nov-2026: plan Pro de cig-db
+Gabriel decidió esperar el pago de la Municipalidad para pasar cig-db a Supabase Pro (no se pausa y trae respaldos diarios). Hasta entonces la base sigue en plan gratuito y se puede pausar a los 7 días sin uso; si pasa, restaurar con la Management API (`POST /v1/projects/{ref}/restore`).
