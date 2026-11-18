@@ -68,6 +68,10 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
   const siguiente = siguienteClave
     ? { href: `/expedientes/${id}/formularios/${siguienteClave}`, texto: `Continuar: ${PLANTILLAS[`${exp.framework_id}/${siguienteClave}`].titulo}` }
     : { href: `/expedientes/${id}`, texto: 'Terminar y volver al expediente' }
+  const anteriorClave = ORDEN.slice(0, Math.max(0, ORDEN.indexOf(clave))).reverse().find((c) => PLANTILLAS[`${exp.framework_id}/${c}`])
+  const anterior = anteriorClave
+    ? { href: `/expedientes/${id}/formularios/${anteriorClave}`, texto: `Atrás: ${PLANTILLAS[`${exp.framework_id}/${anteriorClave}`].titulo}` }
+    : { href: `/expedientes/${id}`, texto: 'Volver al expediente' }
 
   return (
     <div className="grid gap-4">
@@ -78,7 +82,7 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
           Es el formulario original de Catastro. Los datos salen de la ficha del expediente: si corregís algo acá, se corrige en la ficha y en todos los formularios.
         </p>
       </div>
-      <EditorFormulario expedienteId={id} plantilla={plantilla} valoresFicha={valores} editable={editable} impreso={impreso} documentosImagen={documentosImagen} siguiente={siguiente} />
+      <EditorFormulario expedienteId={id} plantilla={plantilla} valoresFicha={valores} editable={editable} impreso={impreso} documentosImagen={documentosImagen} siguiente={siguiente} anterior={anterior} />
     </div>
   )
 }

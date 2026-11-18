@@ -44,6 +44,7 @@ export function EditorFormulario(props: {
   documentosImagen?: Record<string, string>
   /** Adónde lleva el botón del pie: el formulario que sigue o, si es el último, la ficha. */
   siguiente?: { href: string; texto: string }
+  anterior?: { href: string; texto: string }
 }) {
   const { plantilla, valoresFicha } = props
   const router = useRouter()
@@ -117,10 +118,11 @@ export function EditorFormulario(props: {
     }
   }
 
-  const continuar = async () => {
-    if (!props.siguiente) return
+  // Antes de cambiar de formulario se guarda lo corregido, para no perderlo.
+  const irA = async (href?: string) => {
+    if (!href) return
     if (props.editable && !(await guardar())) return
-    router.push(props.siguiente.href)
+    router.push(href)
   }
 
   const campoInput = (c: CampoPlantilla) => {
@@ -230,12 +232,21 @@ export function EditorFormulario(props: {
         ))}
       </div>
 
-      {props.siguiente && (
-        <div className="mx-auto flex w-full max-w-[900px] flex-wrap items-center justify-end gap-3 border-t border-linea pt-4">
-          {props.editable && hayCambios && <span className="text-sm text-tenue">Se guardan los cambios antes de seguir.</span>}
-          <button type="button" onClick={continuar} disabled={ocupado} className="boton-principal">
-            {ocupado ? 'Guardando…' : `${props.siguiente.texto} →`}
-          </button>
+      {(props.siguiente || props.anterior) && (
+        <div className="mx-auto flex w-full max-w-[900px] flex-wrap items-center justify-between gap-3 border-t border-linea pt-4">
+          {props.anterior ? (
+            <button type="button" onClick={() => irA(props.anterior?.href)} disabled={ocupado} className="boton">
+              ← {props.anterior.texto}
+            </button>
+          ) : <span />}
+          <div className="flex flex-wrap items-center gap-3">
+            {props.editable && hayCambios && <span className="text-sm text-tenue">Los cambios se guardan al pasar de formulario.</span>}
+            {props.siguiente && (
+              <button type="button" onClick={() => irA(props.siguiente?.href)} disabled={ocupado} className="boton-principal">
+                {ocupado ? 'Guardando…' : `${props.siguiente.texto} →`}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
