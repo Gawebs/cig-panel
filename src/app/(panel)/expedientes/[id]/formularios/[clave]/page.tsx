@@ -64,11 +64,14 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
   const impreso = ((exp.formularios_impresos ?? {}) as Record<string, { huella: string; fecha: string }>)[clave] ?? null
   const editable = EDITABLES.includes(exp.estado) && ctx.roles.some((r) => ['armado', 'subdireccion', 'direccion', 'relevamiento'].includes(r))
 
-  const siguienteClave = ORDEN.slice(ORDEN.indexOf(clave) + 1).find((c) => PLANTILLAS[`${exp.framework_id}/${c}`])
+  // El Anexo I solo hace falta con más de 2 solicitantes: si no, Atrás y Continuar lo saltean.
+  const solicitantes = (personas ?? []).filter((p) => p.rol === 'solicitante').length
+  const aplica = (c: string) => Boolean(PLANTILLAS[`${exp.framework_id}/${c}`]) && (c !== 'anexo_i' || solicitantes > 2)
+  const siguienteClave = ORDEN.slice(ORDEN.indexOf(clave) + 1).find(aplica)
   const siguiente = siguienteClave
     ? { href: `/expedientes/${id}/formularios/${siguienteClave}`, texto: `Continuar: ${PLANTILLAS[`${exp.framework_id}/${siguienteClave}`].titulo}` }
     : { href: `/expedientes/${id}`, texto: 'Terminar y volver al expediente' }
-  const anteriorClave = ORDEN.slice(0, Math.max(0, ORDEN.indexOf(clave))).reverse().find((c) => PLANTILLAS[`${exp.framework_id}/${c}`])
+  const anteriorClave = ORDEN.slice(0, Math.max(0, ORDEN.indexOf(clave))).reverse().find(aplica)
   const anterior = anteriorClave
     ? { href: `/expedientes/${id}/formularios/${anteriorClave}`, texto: `Atrás: ${PLANTILLAS[`${exp.framework_id}/${anteriorClave}`].titulo}` }
     : { href: `/expedientes/${id}`, texto: 'Volver al expediente' }

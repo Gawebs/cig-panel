@@ -83,15 +83,42 @@ export function EditorFormulario(props: {
   const colorCampo = (id: string) =>
     cambiados[id] !== undefined ? 'bg-aviso-suave/90 ring-1 ring-aviso' : valores[id] ? 'bg-verde-suave/70' : 'bg-azul-suave/40 hover:bg-azul-suave/70'
 
+  const guardando = useRef(false)
+  const [guardadoA, setGuardadoA] = useState<Date | null>(null)
+
   const guardar = async () => {
     if (!hayCambios) return true
+    if (guardando.current) return false
+    guardando.current = true
     setOcupado(true)
     const r = await guardarFormulario(props.expedienteId, plantilla.clave, cambiados)
+    guardando.current = false
     setOcupado(false)
-    setMensaje(r.error ? { tipo: 'error', texto: r.error } : { tipo: 'ok', texto: r.ok ?? 'Guardado.' })
-    if (!r.error) startTransition(() => router.refresh())
+    if (r.error) setMensaje({ tipo: 'error', texto: r.error })
+    else {
+      setMensaje(null)
+      setGuardadoA(new Date())
+      startTransition(() => router.refresh())
+    }
     return !r.error
   }
+
+  // Autoguardado: a los 2 segundos de dejar de escribir se guarda solo.
+  const firmaCambios = JSON.stringify(cambiados)
+  useEffect(() => {
+    if (!props.editable || !hayCambios || mensaje?.tipo === 'error') return
+    const t = setTimeout(() => { void guardar() }, 2000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmaCambios, props.editable])
+
+  // Si queda algo sin guardar, el navegador avisa antes de cerrar o recargar la pestaña.
+  useEffect(() => {
+    if (!hayCambios) return
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [hayCambios])
 
   const imprimir = async () => {
     const ventana = window.open('', '_blank')
@@ -125,6 +152,11 @@ export function EditorFormulario(props: {
     router.push(href)
   }
 
+  const cambiar = (id: string, valor: string) => {
+    setValores((v) => ({ ...v, [id]: valor }))
+    if (mensaje?.tipo === 'error') setMensaje(null)
+  }
+
   const campoInput = (c: CampoPlantilla) => {
     const soloLectura = !props.editable || c.fuente.tipo === 'marco' || c.fuente.tipo === 'fijo' || (c.fuente.tipo === 'expediente' && SOLO_LECTURA.has(c.fuente.campo))
     const comun = {
@@ -146,20 +178,20 @@ export function EditorFormulario(props: {
           style={{ ...caja(c.x0, c.x1, (c.renglones?.[0] ?? c.y) + alto - 14, alto) }}
           className={`${comun.className} resize-none`}
           value={valores[c.id] ?? ''}
-          onChange={(e) => setValores((v) => ({ ...v, [c.id]: e.target.value }))}
+          onChange={(e) => cambiar(c.id, e.target.value)}
         />
       )
     }
     if (c.control === 'estado_civil') {
       return (
-        <select key={c.id} {...comun} value={valores[c.id] ?? ''} onChange={(e) => setValores((v) => ({ ...v, [c.id]: e.target.value }))}>
+        <select key={c.id} {...comun} value={valores[c.id] ?? ''} onChange={(e) => cambiar(c.id, e.target.value)}>
           <option value="" />
           {Object.entries(ESTADO_CIVIL_TEXTO).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
         </select>
       )
     }
     return (
-      <input key={c.id} {...comun} value={valores[c.id] ?? ''} onChange={(e) => setValores((v) => ({ ...v, [c.id]: e.target.value }))} />
+      <input key={c.id} {...comun} value={valores[c.id] ?? ''} onChange={(e) => cambiar(c.id, e.target.value)} />
     )
   }
 
@@ -174,9 +206,9 @@ export function EditorFormulario(props: {
 
       <div className="flex flex-wrap items-center gap-2">
         {props.editable && (
-          <button type="button" onClick={guardar} disabled={!hayCambios || ocupado} className="boton">
-            {hayCambios ? `Guardar ${Object.keys(cambiados).length} cambio(s)` : 'Sin cambios'}
-          </button>
+          <span aria-live="polite" className={`text-sm ${hayCambios ? 'text-aviso' : 'text-ok'}`}>
+            {ocupado ? 'Guardando…' : hayCambios ? 'Cambios sin guardar (se guardan solos)' : guardadoA ? `✓ Guardado a las ${guardadoA.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` : '✓ Todo guardado'}
+          </span>
         )}
         <button type="button" onClick={imprimir} disabled={ocupado} className="boton-principal">
           {ocupado ? 'Preparando…' : 'Imprimir para firmar'}
@@ -240,7 +272,6 @@ export function EditorFormulario(props: {
             </button>
           ) : <span />}
           <div className="flex flex-wrap items-center gap-3">
-            {props.editable && hayCambios && <span className="text-sm text-tenue">Los cambios se guardan al pasar de formulario.</span>}
             {props.siguiente && (
               <button type="button" onClick={() => irA(props.siguiente?.href)} disabled={ocupado} className="boton-principal">
                 {ocupado ? 'Guardando…' : `${props.siguiente.texto} →`}
