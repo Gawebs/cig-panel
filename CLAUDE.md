@@ -1,72 +1,60 @@
-# CIG Panel — Municipalidad de Banda del Río Salí
+@AGENTS.md
 
-Panel web interno para la gestión de expedientes de la **Dirección de Regularización Dominial**. Es un sistema institucional de uso interno, **no un SaaS**: no hay multi-tenancy, ni planes, ni clientes múltiples.
+# CIG Regularización Dominial (cig-dominial)
+
+Producto nuevo que reemplaza a `cig-panel` (que sigue en uso en cig-panel.vercel.app hasta que este esté probado). Leer `PRODUCT.md` antes de tocar pantallas y `ESTADO.md` para retomar.
+
+- **Propuesta de diseño aprobada:** https://claude.ai/artifact/6PCJUA8ZTxi4CRJ9H3Vfft
+- **Relevamiento de Catastro:** `docs/relevamiento-catastro.md` (portal, pasos, formularios por ley). Formularios oficiales en `docs/formularios-oficiales/` y los que se llenan en `public/formularios/` (los `portal-*` son los vigentes).
 
 ## Stack
+Next.js 16 (App Router, `proxy.ts`, params como Promise) + React 19 + TypeScript + Tailwind 4 + Supabase (`@supabase/ssr`) + zod. Patrón Nexaia: Server Actions en `src/actions/`, lectura en Server Components, tres clientes en `src/lib/supabase/`.
 
-React + Vite, **sin TypeScript**. Supabase para base de datos y storage. Deploy en Vercel.
+## Datos
+- Tablas en inglés, columnas de negocio en español. Migraciones en `supabase/migrations/`.
+- Multi-municipio: todo cuelga de `municipalities`; acceso por `memberships` (roles: direccion, subdireccion, armado, relevamiento, consulta) y `platform_admins` (soporte).
+- RLS en todas las tablas. Funciones `es_miembro`, `tiene_rol`, `puede_ver_expediente`, `puede_editar_expediente`.
+- **El estado del expediente solo cambia con `cambiar_estado()`** (valida transición y rol). Un trigger bloquea cambiarlo con un update común.
+- `case_events` y `audit_log` son inmutables (nadie puede escribirlos ni borrarlos desde la app).
+- Expedientes no se borran: se desisten o archivan.
 
-- **Repo:** https://github.com/Gawebs/cig-panel, rama `main` (antes estaba en `nxaia/cig-panel`)
-- **Producción (la única, la que usa la oficina):** https://cig-panel.vercel.app. Proyecto Vercel de la cuenta `admin-80077198s-projects`, conectado a GitHub: **se publica solo con cada push a `main`**. No usar `vercel --prod` desde esta carpeta (el 06-nov-2026 se borró una segunda copia, cig-panel-rho, que se había creado así).
-- **Tablas:** `expedientes`, `expediente_planos`, `certificados_residencia`, `certificado_residencia_archivos`, `usuarios`, `panel_accesos`
-- **Storage:** bucket `planos-expedientes`
-- **Env vars:** `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`, en `.env` local y en Vercel producción
+## Leyes
+Configuración en `supabase/marcos/*.json` (se cargan a `legal_frameworks.config`). El motor `src/lib/requisitos.ts` arma el checklist por ley, estado civil, personas y años de prueba. Es función pura con pruebas en `src/lib/requisitos.test.ts`. Solo 3 leyes para Banda del Río Salí: Pierri, 5670 (La Milagrosa), 8162 (Menem). Las reglas de años de Menem están "a confirmar con Carlos".
 
-## Todo vive en `src/App.jsx`
+## Archivos, DNI y formularios
+- Archivos en el bucket privado `expedientes`, ruta `<municipality_id>/<case_file_id>/<archivo>.pdf`; las reglas de `storage.objects` usan `ruta_de_expediente_valida()`. Siempre PDF: las fotos se unen con `unirEnPdf` (`src/lib/escaneo.ts`) y se suben con `subirDocumento` (`src/lib/subida.ts`).
+- **Imágenes: usar `createImageBitmap`, no `img.decode()`**: con la pestaña en segundo plano `decode()` no termina nunca.
+- DNI: `src/lib/dni.ts` (puro, con pruebas) + `leerCodigoDni`/`leerTexto` en `escaneo.ts`. El lector de texto usa `public/vendor/` (copiado por `npm install` con `scripts/copiar-recursos.mjs`; no se versiona).
+- Formularios: plantillas con coordenadas en `src/lib/formularios/plantillas.ts` (medidas con PyMuPDF sobre `public/formularios/portal-*`). Cada casillero apunta a un dato de la ficha; `guardarFormulario` escribe en la ficha, nunca en una copia. `generarPdf` imprime sobre el original. Para revisar la alineación: `GUARDAR_PDF=<carpeta> npx vitest run src/lib/formularios` y mirar los PDF.
+- En inputs ocultos controlados por estado usar `value`, no `defaultValue` (React los reinicia en cada render).
+- Formularios nuevos: medir con PyMuPDF el rótulo de cada casillero y usar los ayudantes `bloque`, `familia` y `fechaEsquina` de `plantillas.ts`. Revisar siempre imprimiendo con todo lleno (prueba de `imprimir.test.ts` con `GUARDAR_PDF`).
+- `generarPdf` escribe sobre las hojas originales y recién al final quita las que no van: si se quitan antes, pdf-lib pierde lo escrito.
+- Al leer `input.files`, copiarlo con `Array.from` antes de limpiar el campo (la lista del navegador se vacía).
+- Pruebas de posesión: `servicio_impuesto` en la configuración de una ley se abre en cada servicio (`tiposDePrueba`); con mínimo de 2 o más por año cuentan los tipos distintos (`pruebasDistintas`).
 
-Un solo archivo de ~4.200 líneas con toda la aplicación: login, dashboard, expedientes, constancias, importación de Excel. No hay router ni componentes en archivos separados.
+## Firma y Catastro
+- PDF firmados: requisito `pdf_firmado`, `origen = 'firmado'`, archivo `firmado-P<n>-*.pdf`. Solo los sube la Dirección (`puede_firmar_expediente`: aprobado, observado o prórroga). `cambiar_estado(..., 'firmado')` exige los 4 pasos.
+- Presentación, observación, prórroga y reingreso: siempre con las funciones `registrar_*` de la base (nunca un update directo: el estado y los datos van juntos). Plazos con `sumar_dias` y la tabla `feriados`; plazo y tipo de días en `municipalities.plazo_catastro_*`.
+- La base corre con hora de Argentina (`alter database ... set timezone`): repetirlo al crear la base en la nube.
+- Constancias de tenencia precaria: `tenure_certificates` (+ archivos en el depósito `constancias`), impresión en `/imprimir/constancia/[id]` (`?vista=1` para verla sin abrir el diálogo de impresión).
 
-Al buscar algo, orientarse por los nombres de constantes y funciones, no por scroll: `LOGIN_USERS`, `UBICACIONES`, `isSupabasePaused`.
+## Relevamiento (celular, sin señal)
+- `/campo` es una página estática que corre entera en el navegador: datos en IndexedDB (`src/lib/campo/almacen.ts`), sincronización en `src/lib/campo/sincronizar.ts`. No usar el layout del panel ahí (necesita servidor).
+- `public/sw.js` guarda la pantalla `/campo` y los recursos con nombre fijo. Se registra solo en producción (en desarrollo los archivos cambian de contenido con el mismo nombre). Para probar sin conexión: `npm run build` + entrada `cig-dominial-prod` (puerto 5681), abrir `/campo` dos veces y apagar el servidor.
+- Cuestionario y reglas de interpretación en `src/lib/relevamiento/cuestionario.ts`; paso a la ficha en `aplicar.ts` (nunca pisa datos cargados a mano); casillas de lo observado en `observaciones.ts`. Todo puro, con pruebas.
+- Voz a texto: `src/lib/voz/` (Whisper base en un Web Worker). Modelo en `public/vendor/modelos/` bajado por `scripts/bajar-modelo-voz.mjs` en el `postinstall`; motor onnxruntime en `public/vendor/ort/`. `env.allowRemoteModels = false`: nunca pide nada a terceros.
+- Tabla `field_surveys` (un relevamiento por expediente, id generado en el celular) y depósito privado `audios` (sin update ni delete).
 
-## Secciones
+## Desarrollo local
+1. Docker Desktop abierto. `npx supabase start` (puertos 54321-54324).
+2. `.env.local` con las claves locales (ver `.env.ejemplo`).
+3. `node scripts/semilla-local.mjs` carga leyes, 2 municipios de prueba y 7 usuarios `@prueba.local` (clave en `SEMILLA_CLAVE_PRUEBA`). Se niega a correr contra una base que no sea local.
+4. `npm run dev -- --port 5680` (entrada `cig-dominial` en el launch.json global).
+5. `npx vitest run`: motor de requisitos + pruebas de seguridad contra la base local (se saltean si la base no está arriba).
 
-Dashboard (con vista especial `IntendenteDashboard` para el intendente) · Expedientes (tabla principal con filtros, paginación dinámica y adjuntos) · Constancias (certificados de residencia imprimibles) · Importar Excel · Nuevo expediente.
+**Todavía no hay base en la nube ni deploy.** Para publicar seguir `docs/PUBLICAR.md`. Nunca correr `supabase db push` contra cig-db (la base del panel actual).
 
-## Usuarios
-
-Están hardcodeados en `LOGIN_USERS` dentro de `App.jsx`, no en la base. Seis perfiles: el intendente y un usuario genérico son de solo lectura; los cuatro perfiles del área técnica y la dirección tienen `canEdit: true`.
-
-Para agregar o cambiar un usuario hay que editar ese array **y** el mapa `PERFILES` de `supabase/functions/panel-login/index.ts`, y redeployar los dos.
-
-## Seguridad de acceso (rama `seguridad-acceso`, 06-nov-2026)
-
-Hasta esa fecha la base estaba abierta: con la anon key de la página se podía leer, modificar y borrar todo, y las contraseñas vivían solo en el `localStorage` de cada navegador. Ahora:
-
-- **Todos los perfiles piden contraseña.** La pantalla manda el SHA-256 de lo que escribe el usuario a la función `panel-login` (Edge Function), que lo verifica contra `panel_usuarios.password_pbkdf2` y entrega una sesión de Supabase. La primera vez que un perfil ingresa sin contraseña guardada, la que escribe queda registrada. Si el navegador tenía guardada la contraseña vieja (`cig_panel_password_hash_cache_v1`), tiene que coincidir.
-- Cada perfil tiene una cuenta interna `<clave>@cig-brs.local` en Supabase Auth, creada por la función. Nadie la usa directamente.
-- **RLS:** las tablas de trabajo solo responden a sesiones iniciadas (`authenticated`). `panel_usuarios` y `panel_login_intentos` no tienen reglas para la página: solo las toca la función con la service role.
-- **Archivos privados:** el bucket `planos-expedientes` ya no es público. Las URLs guardadas conservan el formato `/object/public/`; un listener global (`abrirArchivoPrivado`) intercepta esos clics y abre un enlace firmado de 5 minutos.
-- **Freno:** 8 intentos fallidos por perfil en 15 minutos bloquean ese perfil por 15 minutos.
-- **Resetear una contraseña:** borrar `password_pbkdf2` de esa fila en `panel_usuarios`. El próximo ingreso registra la nueva. El botón "Reset manual admin" se sacó porque nunca funcionó.
-- **Pruebas locales:** `npx supabase start` (Docker) levanta una réplica con datos inventados (`supabase/seed.sql`). `supabase/pruebas/probar_seguridad.mjs` corre 25 pruebas. Para el panel contra la réplica: `npm run dev -- --mode prueba` con `.env.prueba.local`.
-- `supabase/migrations/20261106000000_replica_produccion.sql` es **solo para la réplica local**. Nunca hacer `supabase db push` en producción.
-- Publicación y vuelta atrás: `supabase/PUBLICAR_SEGURIDAD.md`.
-
-## Formulario Ley 24.374 (Catastro provincial)
-
-Botón "Formulario Ley 24.374" en la ficha del expediente (`Formulario24374Modal`). **No se puede rediseñar:** es un formulario oficial de Catastro de Tucumán y tiene que salir idéntico. Por eso se llena el PDF original (`public/formularios/ley-24374-solicitud.pdf`) con `pdf-lib`, escribiendo cada dato en coordenadas medidas a mano (`FORMULARIO_24374_FILAS`, `FORMULARIO_24374_PERSONA_CAMPOS`, `FORMULARIO_24374_INMUEBLE_CAMPOS`). Si Catastro manda una versión nueva del PDF, hay que volver a medir las posiciones con pymupdf.
-
-Lo que se carga en el modal no se guarda: CUIL, cónyuge y datos catastrales no existen en la tabla `expedientes`.
-
-## Trampas conocidas
-
-**El campo "Ubicación" se llama `resp` en el código.** La etiqueta que ve el usuario dice "Ubicación", pero la propiedad del expediente es `resp`. Los valores salen de la constante `UBICACIONES` (hoy: vacío, "Área técnica BRS", "Catastro"), es una lista fija, no una tabla. Originalmente era un UUID y se migró a texto.
-
-**`src/assets/logo-area-clean.png` no se puede perder.** Se usa en las constancias y en la interfaz, y está trackeado en git. Al resolver conflictos de merge en `App.jsx` con `git checkout --ours`, ese archivo puede desaparecer del disco y romper el build. Si falta: `git checkout HEAD -- src/assets/logo-area-clean.png`. Ya pasó una vez.
-
-`public/logo-icono.png` es el logo del municipio, se usa en el login y el sidebar.
-
-## Supabase se pausaba solo
-
-El proyecto está en plan gratuito y Supabase lo pausa tras 7 días sin actividad, dejando el panel caído hasta que alguien lo reactiva a mano.
-
-Dos mecanismos lo cubren hoy:
-
-1. **`.github/workflows/keep-alive.yml`** — hace un `GET` de un registro de `expedientes` todos los días a las 12:00 UTC (09:00 Argentina). Usa los secrets `SUPABASE_URL` y `SUPABASE_ANON_KEY` del repo. Es la prevención: si esto corre, el proyecto no se pausa. Se puede disparar a mano con `gh workflow run keep-alive.yml`.
-2. **La app lo detecta y avisa.** `isSupabasePaused(error)` reconoce el error y muestra un banner en vez de una pantalla rota. Decisión tomada: el banner es **solo texto, sin botón de WhatsApp**.
-
-Además, `nexaia-ops-agent` monitorea este proyecto y reactiva Supabase automáticamente si igual llegara a pausarse.
-
-## Flujo de trabajo
-
-Siempre sobre `main`. `git pull` antes de tocar nada y `npm run build` para verificar. Publicar = push a `main` (Vercel publica solo en cig-panel.vercel.app).
+## Seguridad y alta de municipios
+- Nadie se registra solo (`enable_signup = false`); los usuarios se crean con `scripts/alta-municipio.mjs` (contraseñas provisorias en `credenciales/`, fuera de git). Cada uno la cambia en `/cuenta`.
+- Las funciones de la base no se pueden llamar sin sesión (migración `endurecer`); las nuevas tampoco (privilegios por defecto).
+- `next.config.ts` pone la política de contenido: si se suma un servicio externo o un recurso nuevo, agregarlo ahí o se bloquea. El sitio no usa la clave de servicio (`src/lib/supabase/admin.ts` no se importa en ningún lado).

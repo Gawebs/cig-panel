@@ -1,0 +1,48 @@
+{
+  "id": "ley_pierri",
+  "nombre": "Ley Nacional Pierri N° 24.374 – Ley N° 6.753 – Ley N° 8.031 – Dcto. Reg. N° 782",
+  "nombre_corto": "Ley Pierri",
+  "valor_catastro": "Ley Pierri",
+  "alcance": "provincial",
+  "usa_nomina_padrones": false,
+  "version": 1,
+  "config": {
+    "ley_provincial": "8.031",
+    "decreto_reglamentario": "782",
+    "grupo_familiar": false,
+    "max_solicitantes_formulario": 2,
+    "formularios": [
+      { "clave": "solicitud", "paso": 1, "titulo": "Formulario de solicitud de adhesión", "plantilla": "portal-Formulario_LEY_24374_Solicitud.pdf" },
+      { "clave": "anexo_i", "paso": 1, "titulo": "Anexo I: solicitantes adicionales", "plantilla": "portal-Formulario_LEY_24374_Solicitud.pdf" },
+      { "clave": "ddjj", "paso": 1, "titulo": "Declaración jurada", "plantilla": "portal-Formulario_LEY_24374_DDJJ.pdf" },
+      { "clave": "relevamiento_social", "paso": 4, "titulo": "Relevamiento social", "plantilla": "portal-Formulario_LEY_24374_RelevamientoSocial.pdf" }
+    ],
+    "requisitos": [
+      { "clave": "formulario_solicitud", "paso": 1, "titulo": "Formulario de solicitud firmado", "aplica": "expediente", "formulario": "solicitud" },
+      { "clave": "anexo_i", "paso": 1, "titulo": "Anexo I (solicitantes adicionales) firmado", "aplica": "expediente", "condicion": { "solicitantes_mas_de": 2 }, "formulario": "anexo_i" },
+      { "clave": "ddjj", "paso": 1, "titulo": "Declaración jurada firmada", "aplica": "expediente", "formulario": "ddjj", "ayuda": "Incluye origen y año de la posesión." },
+      { "clave": "dni", "paso": 1, "titulo": "DNI (frente y dorso)", "aplica": "persona", "roles": ["solicitante", "conyuge"] },
+      { "clave": "cuil", "paso": 1, "titulo": "Constancia de CUIL/CUIT", "aplica": "persona", "roles": ["solicitante", "conyuge"] },
+      { "clave": "acta_matrimonio", "paso": 1, "titulo": "Acta de matrimonio certificada por el Registro Civil", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["casado", "viudo"] } },
+      { "clave": "acta_defuncion", "paso": 1, "titulo": "Acta de defunción certificada por el Registro Civil", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["viudo"] } },
+      { "clave": "sentencia_divorcio", "paso": 1, "titulo": "Sentencia de divorcio certificada por el juzgado", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["divorciado"] }, "ayuda": "O acta de matrimonio con la marginal de la sentencia, con fecha y juzgado completos." },
+      { "clave": "constancia_convivencia", "paso": 1, "titulo": "Constancia de convivencia", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["conviviente"] }, "ayuda": "Constancia policial original, acta ante escribano certificada o acta de unión convivencial del Registro Civil." },
+      { "clave": "acta_nacimiento", "paso": 1, "titulo": "Acta de nacimiento certificada", "aplica": "persona", "roles": ["solicitante", "conyuge"] },
+      { "clave": "acta_nacimiento_padres", "paso": 1, "titulo": "Actas de nacimiento de los padres", "aplica": "persona", "roles": ["solicitante", "conyuge"] },
+      { "clave": "coordenadas", "paso": 2, "titulo": "Coordenadas de ubicación", "aplica": "expediente" },
+      { "clave": "croquis", "paso": 2, "titulo": "Croquis según instructivo de Catastro", "aplica": "expediente" },
+      { "clave": "fotos_inmueble", "paso": 2, "titulo": "4 fotos del inmueble (frente, contrafrente y 2 del interior)", "aplica": "expediente" },
+      { "clave": "relevamiento_social", "paso": 4, "titulo": "Relevamiento social firmado", "aplica": "expediente", "formulario": "relevamiento_social" }
+    ],
+    "pruebas_posesion": {
+      "paso": 3,
+      "descripcion": "Posesión durante el período del 31/12/2005 al 01/01/2009, además del año en curso.",
+      "anios_fijos": [2006, 2007, 2008],
+      "incluir_anio_en_curso": true,
+      "minimo_por_anio": 1,
+      "minimo_anio_en_curso": 1,
+      "requisitos_extra": [],
+      "tipos_aceptados": ["boleto_compraventa", "cesion_derechos", "servicio_impuesto", "acta_nacimiento_periodo", "recibo_sueldo", "factura_materiales", "certificado_medico", "certificado_escolar"]
+    }
+  }
+}

@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/*
+ * Identidad: degradé azul → verde (escudo de Banda del Río Salí + azul de Catastro).
+ * Cada municipio puede cambiar --marca desde su configuración; el resto es fijo del producto.
+ */
+:root {
+  --fondo: oklch(0.975 0.006 220);
+  --papel: oklch(1 0 0);
+  --tinta: oklch(0.25 0.03 240);
+  --tenue: oklch(0.5 0.025 240);
+  --linea: oklch(0.9 0.012 230);
+  --azul: oklch(0.47 0.13 255);
+  --verde: oklch(0.62 0.13 165);
+  --marca: var(--verde);
+  --azul-suave: oklch(0.95 0.025 250);
+  --verde-suave: oklch(0.95 0.035 165);
+  /* Estados: verde completo, ámbar incompleto, rojo falta/vencido, azul en trámite */
+  --ok: oklch(0.55 0.13 155);
+  --ok-suave: oklch(0.95 0.04 155);
+  --aviso: oklch(0.62 0.14 70);
+  --aviso-suave: oklch(0.96 0.05 85);
+  --error: oklch(0.55 0.19 25);
+  --error-suave: oklch(0.96 0.03 25);
+}
+
+@theme inline {
+  --color-fondo: var(--fondo);
+  --color-papel: var(--papel);
+  --color-tinta: var(--tinta);
+  --color-tenue: var(--tenue);
+  --color-linea: var(--linea);
+  --color-azul: var(--azul);
+  --color-verde: var(--verde);
+  --color-marca: var(--marca);
+  --color-azul-suave: var(--azul-suave);
+  --color-verde-suave: var(--verde-suave);
+  --color-ok: var(--ok);
+  --color-ok-suave: var(--ok-suave);
+  --color-aviso: var(--aviso);
+  --color-aviso-suave: var(--aviso-suave);
+  --color-error: var(--error);
+  --color-error-suave: var(--error-suave);
+  --font-titulo: var(--font-questrial), "Century Gothic", system-ui, sans-serif;
+  --font-texto: var(--font-nunito), system-ui, sans-serif;
+}
+
+body {
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--font-texto);
+  font-size: 17px;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-titulo);
+  text-wrap: balance;
+}
+
+.degrade {
+  background: linear-gradient(100deg, var(--azul), var(--marca));
+}
+
+@layer components {
+  .campo {
+    @apply min-h-11 w-full rounded-md border border-linea bg-papel px-3 text-base text-tinta;
+  }
+  .campo:focus { @apply border-azul outline-none; }
+  .boton-principal {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-5 font-semibold text-white disabled:opacity-60;
+    background: linear-gradient(100deg, var(--azul), var(--marca));
+  }
+  .boton {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-linea bg-papel px-4 font-semibold text-tinta hover:border-azul disabled:opacity-60;
+  }
+  .tarjeta { @apply rounded-xl border border-linea bg-papel; }
+  .etiqueta { @apply text-xs font-semibold uppercase tracking-wider text-tenue; }
+}
+
+:focus-visible {
+  outline: 3px solid var(--azul);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

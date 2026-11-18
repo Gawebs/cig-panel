@@ -1,0 +1,46 @@
+{
+  "id": "ley_5670",
+  "nombre": "Barrio La Milagrosa BRS – Ley N° 5.670",
+  "nombre_corto": "La Milagrosa",
+  "valor_catastro": "Ley 5670",
+  "alcance": "barrio",
+  "usa_nomina_padrones": true,
+  "version": 1,
+  "config": {
+    "ley_provincial": "5.670",
+    "decreto_reglamentario": null,
+    "grupo_familiar": true,
+    "max_solicitantes_formulario": 2,
+    "formularios": [
+      { "clave": "solicitud", "paso": 1, "titulo": "Formulario de solicitud de adhesión", "plantilla": "portal-Formulario_LEY_5670_Solicitud.pdf" },
+      { "clave": "ddjj", "paso": 1, "titulo": "Declaración jurada", "plantilla": "portal-Formulario_LEY_5670_DDJJ.pdf" },
+      { "clave": "relevamiento_social", "paso": 4, "titulo": "Relevamiento social", "plantilla": "portal-Formulario_LEY_24374_RelevamientoSocial.pdf" }
+    ],
+    "requisitos": [
+      { "clave": "formulario_solicitud", "paso": 1, "titulo": "Formulario de solicitud firmado", "aplica": "expediente", "formulario": "solicitud" },
+      { "clave": "ddjj", "paso": 1, "titulo": "Declaración jurada firmada", "aplica": "expediente", "formulario": "ddjj", "ayuda": "Incluye si cuenta con documentación del IPVDU." },
+      { "clave": "dni", "paso": 1, "titulo": "DNI (frente y dorso)", "aplica": "persona", "roles": ["solicitante", "conyuge", "grupo_familiar"] },
+      { "clave": "cuil", "paso": 1, "titulo": "Constancia de CUIL/CUIT", "aplica": "persona", "roles": ["solicitante", "conyuge"] },
+      { "clave": "acta_matrimonio", "paso": 1, "titulo": "Acta de matrimonio certificada por el Registro Civil", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["casado", "viudo"] } },
+      { "clave": "acta_defuncion", "paso": 1, "titulo": "Acta de defunción certificada por el Registro Civil", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["viudo"] } },
+      { "clave": "sentencia_divorcio", "paso": 1, "titulo": "Sentencia de divorcio certificada por el juzgado", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["divorciado"] }, "ayuda": "O acta de matrimonio con la marginal de la sentencia, con fecha y juzgado completos." },
+      { "clave": "constancia_convivencia", "paso": 1, "titulo": "Constancia de convivencia", "aplica": "persona", "roles": ["solicitante"], "condicion": { "estado_civil": ["conviviente"] }, "ayuda": "Constancia policial original, acta ante escribano certificada o acta de unión convivencial del Registro Civil." },
+      { "clave": "acta_nacimiento", "paso": 1, "titulo": "Acta de nacimiento certificada (acredita el vínculo)", "aplica": "persona", "roles": ["grupo_familiar"] },
+      { "clave": "coordenadas", "paso": 2, "titulo": "Coordenadas de ubicación", "aplica": "expediente" },
+      { "clave": "croquis", "paso": 2, "titulo": "Croquis según instructivo de Catastro", "aplica": "expediente" },
+      { "clave": "fotos_inmueble", "paso": 2, "titulo": "4 fotos del inmueble (frente, contrafrente y 2 del interior)", "aplica": "expediente" },
+      { "clave": "relevamiento_social", "paso": 4, "titulo": "Relevamiento social firmado", "aplica": "expediente", "formulario": "relevamiento_social" }
+    ],
+    "pruebas_posesion": {
+      "paso": 3,
+      "descripcion": "Posesión de por lo menos 3 años antes de la fecha de inicio del expediente, con mínimo 2 pruebas distintas por año.",
+      "anios_previos_a_inicio": 3,
+      "incluir_anio_en_curso": false,
+      "minimo_por_anio": 2,
+      "requisitos_extra": [
+        { "clave": "certificado_residencia_policial", "titulo": "Certificado de residencia policial" }
+      ],
+      "tipos_aceptados": ["servicio_impuesto"]
+    }
+  }
+}

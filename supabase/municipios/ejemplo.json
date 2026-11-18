@@ -1,0 +1,25 @@
+{
+  "_comentario": "Copiá este archivo como <slug>.json, completalo con los datos del municipio y corré: node scripts/alta-municipio.mjs supabase/municipios/<slug>.json --confirmar",
+  "nombre": "Comuna de Ejemplo",
+  "slug": "comuna-ejemplo",
+  "sigla": "CEJ",
+  "tipo": "comuna",
+  "departamento": "Tafí Viejo",
+  "color_principal": "#13a07a",
+  "logo": "ruta/al/logo.png",
+  "area_nombre": "Dirección de Regularización Dominial y Hábitat",
+  "secretaria_nombre": "Secretaría de Gobierno",
+  "correo_catastro": "",
+  "plazo_catastro_dias": 10,
+  "plazo_catastro_tipo": "habiles",
+  "leyes": ["ley_pierri"],
+  "localidades": [
+    { "nombre": "Localidad Principal", "barrios": ["Centro", "Barrio Norte"] }
+  ],
+  "usuarios": [
+    { "email": "direccion@ejemplo.gob.ar", "nombre": "Nombre de la Dirección", "roles": ["direccion"] },
+    { "email": "subdireccion@ejemplo.gob.ar", "nombre": "Nombre de la Subdirección", "roles": ["subdireccion", "armado"] },
+    { "email": "atencion@ejemplo.gob.ar", "nombre": "Nombre de atención", "roles": ["armado"] },
+    { "email": "relevador@ejemplo.gob.ar", "nombre": "Nombre del relevador", "roles": ["relevamiento"] }
+  ]
+}

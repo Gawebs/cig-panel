@@ -1,31 +1,46 @@
 {
-  "name": "cig-panel",
+  "name": "cig-dominial",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "semilla": "node scripts/semilla-local.mjs",
+    "postinstall": "node scripts/copiar-recursos.mjs && node scripts/bajar-modelo-voz.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.101.0",
-    "jspdf": "^4.2.1",
+    "@huggingface/transformers": "^3.7.6",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.0",
+    "@tesseract.js-data/spa": "^1.0.0",
+    "@zxing/library": "^0.21.3",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.16.0",
+    "next": "16.2.6",
     "pdf-lib": "^1.17.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "xlsx": "^0.18.5"
+    "pdfjs-dist": "^4.10.38",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.7.0",
+    "tesseract.js": "^5.1.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
-    "vite": "^8.0.1"
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20.9"
   }
 }
