@@ -58,7 +58,6 @@ export function FormInmueble({ expedienteId, editable, barrios, localidades, val
         </fieldset>
         {estado?.error && <p role="alert" className="text-sm text-error">{estado.error}</p>}
         {estado?.ok && <p className="text-sm text-ok">{estado.ok}</p>}
-        <p className="text-xs text-tenue">Padrón: {valores.padron ?? 'sin cargar'}. Se carga al abrir el expediente; la corrección controlada (con doble confirmación) llega en la próxima etapa.</p>
       </form>
     </section>
   )

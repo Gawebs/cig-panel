@@ -8,6 +8,7 @@ import { ACCIONES, ESTADOS, ROLES_PERSONA, type EstadoExpediente } from '@/lib/t
 import { CargaDocumento } from '@/components/carga-documento'
 import { DescargaPaso } from '@/components/descarga-paso'
 import { AccionEstado } from './accion-estado'
+import { FormDatosCatastro } from './form-datos-catastro'
 import { FormInmueble } from './form-inmueble'
 import { Personas, type PersonaFila } from './personas'
 import { SeccionCatastro, type Observacion } from './catastro'
@@ -297,6 +298,14 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
               padron: exp.padron, domicilio_inmueble: exp.domicilio_inmueble, neighborhood_id: exp.neighborhood_id, locality_id: exp.locality_id,
               manzana: exp.manzana, lote: exp.lote, coordenadas: exp.coordenadas, notas: exp.notas,
             }}
+          />
+
+          <FormDatosCatastro
+            expedienteId={id}
+            editable={editable}
+            padron={exp.padron}
+            padron2={exp.padron_2}
+            catastrales={(exp.datos_catastrales ?? {}) as Record<string, string>}
           />
 
           <section className="tarjeta p-5">

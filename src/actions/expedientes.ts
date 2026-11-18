@@ -217,3 +217,45 @@ export async function guardarInmueble(expedienteId: string, _prev: Resultado, fo
   revalidatePath(`/expedientes/${expedienteId}`)
   return { ok: 'Guardado.' }
 }
+
+// Datos que se copian de Catastro: padrón (con doble confirmación) y datos catastrales del inmueble.
+const CLAVES_CATASTRALES = ['circ', 'secc', 'mzna', 'parcela', 'matricula', 'orden', 'antecedente_dominio', 'libro', 'folio', 'serie', 'anio_dominio'] as const
+
+export async function guardarDatosCatastro(expedienteId: string, _prev: Resultado, formData: FormData): Promise<Resultado> {
+  await obtenerContexto()
+  const f = (k: string) => String(formData.get(k) ?? '').trim()
+  const padron = f('padron').replace(/\s/g, '')
+  const padron2 = f('padron_2').replace(/\s/g, '')
+  if (padron && !/^\d{1,12}$/.test(padron)) return conValores(formData, 'El padrón va solo con números, sin puntos ni espacios.')
+  if (padron2 && !/^\d{1,12}$/.test(padron2)) return conValores(formData, 'El segundo padrón va solo con números, sin puntos ni espacios.')
+
+  const supabase = await createClient()
+  const { data: exp } = await supabase.from('case_files').select('municipality_id, padron, datos_catastrales').eq('id', expedienteId).maybeSingle()
+  if (!exp) return conValores(formData, 'No se encontró el expediente.')
+  // Catastro no deja corregir el padrón después de presentado: si cambia, se confirma dos veces.
+  if (padron !== (exp.padron ?? '') && padron !== f('padron_confirmacion').replace(/\s/g, '')) {
+    return conValores(formData, 'Repetí el padrón en el segundo casillero: los dos tienen que coincidir.')
+  }
+  const catastrales = { ...((exp.datos_catastrales ?? {}) as Record<string, string>) }
+  for (const k of CLAVES_CATASTRALES) {
+    if (!formData.has(k)) continue
+    const v = f(k).slice(0, 60)
+    if (v) catastrales[k] = v
+    else delete catastrales[k]
+  }
+  const { data, error } = await supabase
+    .from('case_files')
+    .update({ padron: padron || null, padron_2: padron2 || null, datos_catastrales: catastrales })
+    .eq('id', expedienteId)
+    .select('id')
+  if (error) return conValores(formData, `No se pudo guardar: ${error.message}`)
+  if (!data?.length) return conValores(formData, 'El expediente ya no se puede editar en este estado.')
+
+  let aviso = ''
+  if (padron) {
+    const { data: otros } = await supabase.rpc('buscar_duplicados', { p_municipality: exp.municipality_id, p_padron: padron, p_dni: '', p_excluir: expedienteId })
+    if (otros?.length) aviso = ` Ojo: el padrón ${padron} también figura en ${otros.map((o: { numero_interno: string }) => o.numero_interno).join(', ')}.`
+  }
+  revalidatePath(`/expedientes/${expedienteId}`)
+  return { ok: `Guardado.${aviso}` }
+}
