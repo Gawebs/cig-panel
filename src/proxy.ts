@@ -53,5 +53,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Fuera del control de sesión: archivos públicos del producto (código, iconos, motor de voz, formularios en blanco).
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|vendor/|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pdf)$).*)'],
+  // api/latido: el cron diario que mantiene despierta la base (no lee datos).
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/latido|vendor/|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pdf)$).*)'],
 }
