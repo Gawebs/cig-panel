@@ -46,3 +46,6 @@ public/vendor/
 
 # Contraseñas provisorias del alta de municipios (nunca a git)
 credenciales/
+
+# Restos del panel anterior (Vite)
+/dist
