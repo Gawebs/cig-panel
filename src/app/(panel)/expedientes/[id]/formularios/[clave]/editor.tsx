@@ -45,6 +45,8 @@ export function EditorFormulario(props: {
   /** Adónde lleva el botón del pie: el formulario que sigue o, si es el último, la ficha. */
   siguiente?: { href: string; texto: string }
   anterior?: { href: string; texto: string }
+  /** Datos obligatorios que todavía faltan en la ficha: se avisan antes de imprimir. */
+  faltanDatos?: string[]
 }) {
   const { plantilla, valoresFicha } = props
   const router = useRouter()
@@ -121,6 +123,8 @@ export function EditorFormulario(props: {
   }, [hayCambios])
 
   const imprimir = async () => {
+    const faltan = props.faltanDatos ?? []
+    if (faltan.length && !window.confirm(`Este expediente todavía no tiene:\n\n• ${faltan.join('\n• ')}\n\nSi lo imprimís así, el formulario sale incompleto y hay que volver a hacerlo firmar. ¿Imprimir igual?`)) return
     const ventana = window.open('', '_blank')
     try {
       if (!(await guardar())) { ventana?.close(); return }
@@ -221,6 +225,11 @@ export function EditorFormulario(props: {
       </div>
       {mensaje && (
         <p role={mensaje.tipo === 'error' ? 'alert' : undefined} className={mensaje.tipo === 'error' ? 'text-error' : 'text-ok'}>{mensaje.texto}</p>
+      )}
+      {(props.faltanDatos?.length ?? 0) > 0 && (
+        <p className="rounded-lg bg-aviso-suave px-3 py-2 text-sm text-aviso">
+          Faltan {props.faltanDatos!.length} dato(s) del expediente: {props.faltanDatos!.join('; ')}. Lo que se pueda, completalo acá; el resto, en la ficha.
+        </p>
       )}
       {plantilla.nota && <p className="text-sm text-tenue">{plantilla.nota}</p>}
 

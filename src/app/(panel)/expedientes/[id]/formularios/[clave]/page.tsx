@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { PLANTILLAS, plantillaDe, valoresDesdeFicha, type FichaExpediente, type FichaPersona } from '@/lib/formularios/plantillas'
 import { observacionesEfectivas, type Observaciones } from '@/lib/relevamiento/observaciones'
 import { EditorFormulario } from './editor'
+import { datosFaltantes, type ExpedienteDatos, type PersonaDatos } from '@/lib/datos-obligatorios'
 
 const EDITABLES = ['en_armado', 'devuelto', 'listo_para_revisar', 'observado']
 // Orden en que se completan los formularios; al terminar uno, "Continuar" lleva al siguiente de la misma ley.
@@ -17,7 +18,7 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
 
   const { data: exp } = await supabase
     .from('case_files')
-    .select('numero_interno, estado, framework_id, domicilio_inmueble, departamento, padron, ubicacion, origen_posesion, origen_posesion_detalle, fecha_inicio_posesion, fecha_apertura, datos_catastrales, valores_formularios, formularios_impresos, coordenadas, numero_expediente_catastro, localities(nombre), municipalities(departamento), legal_frameworks(config)')
+    .select('numero_interno, estado, framework_id, domicilio_inmueble, departamento, padron, ubicacion, origen_posesion, origen_posesion_detalle, fecha_inicio_posesion, fecha_apertura, datos_catastrales, valores_formularios, formularios_impresos, coordenadas, numero_expediente_catastro, tiene_documentacion_ipvdu, localities(nombre), municipalities(departamento), legal_frameworks(config)')
     .eq('id', id)
     .maybeSingle()
   if (!exp) notFound()
@@ -61,6 +62,7 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
       : null,
   }
   const valores = valoresDesdeFicha(plantilla, ficha, (personas ?? []) as FichaPersona[])
+  const faltanDatos = datosFaltantes(exp as unknown as ExpedienteDatos, (personas ?? []) as unknown as PersonaDatos[]).map((f) => f.texto)
   const impreso = ((exp.formularios_impresos ?? {}) as Record<string, { huella: string; fecha: string }>)[clave] ?? null
   const editable = EDITABLES.includes(exp.estado) && ctx.roles.some((r) => ['armado', 'subdireccion', 'direccion', 'relevamiento'].includes(r))
 
@@ -85,7 +87,7 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
           Es el formulario original de Catastro. Los datos salen de la ficha del expediente: si corregís algo acá, se corrige en la ficha y en todos los formularios.
         </p>
       </div>
-      <EditorFormulario expedienteId={id} plantilla={plantilla} valoresFicha={valores} editable={editable} impreso={impreso} documentosImagen={documentosImagen} siguiente={siguiente} anterior={anterior} />
+      <EditorFormulario expedienteId={id} plantilla={plantilla} valoresFicha={valores} editable={editable} impreso={impreso} documentosImagen={documentosImagen} siguiente={siguiente} anterior={anterior} faltanDatos={faltanDatos} />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { ACCIONES, ESTADOS, ROLES_PERSONA, type EstadoExpediente } from '@/lib/t
 import { CargaDocumento } from '@/components/carga-documento'
 import { DescargaPaso } from '@/components/descarga-paso'
 import { AccionEstado } from './accion-estado'
+import { datosFaltantes, type DondeSeCarga, type ExpedienteDatos, type PersonaDatos } from '@/lib/datos-obligatorios'
 import { FormDatosCatastro } from './form-datos-catastro'
 import { FormInmueble } from './form-inmueble'
 import { Personas, type PersonaFila } from './personas'
@@ -70,6 +71,14 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
     fechaApertura: new Date(`${exp.fecha_apertura}T12:00:00`),
   })
 
+  const faltanDatos = datosFaltantes(exp as unknown as ExpedienteDatos, (personas ?? []) as unknown as PersonaDatos[])
+  const IR_A: Record<DondeSeCarga, { href: string; texto: string }> = {
+    personas: { href: '#personas', texto: 'Ir a Personas' },
+    catastro: { href: '#datos-catastro', texto: 'Ir a Datos de Catastro' },
+    inmueble: { href: '#inmueble', texto: 'Ir a Inmueble' },
+    ddjj: { href: `/expedientes/${id}/formularios/ddjj`, texto: 'Abrir la declaración jurada' },
+  }
+
   const acciones = ACCIONES.filter((a) => a.desde.includes(estado) && a.roles.some((r) => ctx.roles.includes(r)))
   const ultimaDevolucion = (eventos ?? []).find((e) => e.a_estado === 'devuelto')
 
@@ -98,6 +107,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
         const formulariosPaso1 = ley.config.formularios.filter((f) => f.paso === 1 && (f.clave !== 'anexo_i' || (personas ?? []).filter((p) => p.rol === 'solicitante').length > 2))
         const puntos: { ok: boolean; texto: string }[] = [
           { ok: checklist.faltantes.length === 0, texto: checklist.faltantes.length ? `Faltan ${checklist.faltantes.length} documento(s) del checklist` : 'Todos los documentos del checklist están cargados' },
+          { ok: faltanDatos.length === 0, texto: faltanDatos.length ? `Faltan ${faltanDatos.length} dato(s) obligatorio(s): ${faltanDatos.map((f) => f.texto).join('; ')}` : 'Todos los datos obligatorios están cargados' },
           { ok: checklist.avisos.length === 0, texto: checklist.avisos.length ? `${checklist.avisos.length} aviso(s) sobre los datos: ${checklist.avisos.join(' ')}` : 'Sin avisos sobre los datos de las personas' },
           ...formulariosPaso1.map((f) => ({ ok: Boolean(impresos[f.clave]), texto: impresos[f.clave] ? `${f.titulo}: impreso para firmar` : `${f.titulo}: todavía no se imprimió desde el sistema` })),
           { ok: Boolean(relevamiento), texto: relevamiento ? 'Relevamiento en el lugar hecho' : 'Falta el relevamiento en el lugar' },
@@ -119,6 +129,21 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
         )
       })()}
 
+      {editable && faltanDatos.length > 0 && (
+        <section className="rounded-xl border border-aviso bg-aviso-suave px-5 py-4">
+          <h2 className="text-lg text-aviso">Faltan {faltanDatos.length} dato(s) que Catastro necesita</h2>
+          <p className="text-sm text-tenue">Sin estos datos los formularios salen incompletos. Cargalos antes de imprimir.</p>
+          <ul className="mt-2 grid gap-1.5 text-sm">
+            {faltanDatos.map((f) => (
+              <li key={f.texto} className="flex flex-wrap items-baseline gap-x-2">
+                <span>• {f.texto}</span>
+                <a href={IR_A[f.donde].href} className="font-semibold text-azul hover:underline">{IR_A[f.donde].texto} →</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {acciones.length > 0 && (
         <section className="tarjeta flex flex-wrap items-start gap-3 p-4">
           {acciones.map((a) => (
@@ -129,7 +154,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
               texto={a.texto}
               pideNota={a.pideNota}
               principal={a.principal}
-              aviso={a.hacia === 'listo_para_revisar' && !checklist.completo ? `Todavía faltan ${checklist.faltantes.length} documento(s). Podés enviarlo igual, pero en la revisión va a figurar incompleto.` : undefined}
+              aviso={a.hacia === 'listo_para_revisar' && (!checklist.completo || faltanDatos.length) ? `Todavía faltan ${[checklist.faltantes.length ? `${checklist.faltantes.length} documento(s)` : '', faltanDatos.length ? `${faltanDatos.length} dato(s)` : ''].filter(Boolean).join(' y ')}. Podés enviarlo igual, pero en la revisión va a figurar incompleto.` : undefined}
             />
           ))}
         </section>
@@ -250,6 +275,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             ]}
           />
 
+          <div id="personas" className="scroll-mt-4">
           <Personas
             expedienteId={id}
             municipioId={exp.municipality_id}
@@ -257,6 +283,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             editable={editable}
             grupoFamiliar={ley.config.grupo_familiar}
           />
+          </div>
         </div>
 
         <aside className="grid content-start gap-6">
@@ -289,6 +316,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             )}
           </section>
 
+          <div id="inmueble" className="scroll-mt-4">
           <FormInmueble
             expedienteId={id}
             editable={editable}
@@ -299,7 +327,9 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
               manzana: exp.manzana, lote: exp.lote, coordenadas: exp.coordenadas, notas: exp.notas,
             }}
           />
+          </div>
 
+          <div id="datos-catastro" className="scroll-mt-4">
           <FormDatosCatastro
             expedienteId={id}
             editable={editable}
@@ -307,6 +337,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             padron2={exp.padron_2}
             catastrales={(exp.datos_catastrales ?? {}) as Record<string, string>}
           />
+          </div>
 
           <section className="tarjeta p-5">
             <h2 className="text-lg">Historial</h2>
