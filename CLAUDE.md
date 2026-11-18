@@ -2,7 +2,7 @@
 
 # CIG Regularización Dominial (cig-dominial)
 
-Producto nuevo que reemplaza a `cig-panel` (que sigue en uso en cig-panel.vercel.app hasta que este esté probado). Leer `PRODUCT.md` antes de tocar pantallas y `ESTADO.md` para retomar.
+**En producción desde el 18-nov-2026 en cig-panel.vercel.app** (reemplazó al panel anterior, en la misma base cig-db). Se publica subiendo el código al repo `Gawebs/cig-panel` (rama main); este repo local es donde se trabaja. Leer `PRODUCT.md` antes de tocar pantallas y `ESTADO.md` para retomar.
 
 - **Propuesta de diseño aprobada:** https://claude.ai/artifact/6PCJUA8ZTxi4CRJ9H3Vfft
 - **Relevamiento de Catastro:** `docs/relevamiento-catastro.md` (portal, pasos, formularios por ley). Formularios oficiales en `docs/formularios-oficiales/` y los que se llenan en `public/formularios/` (los `portal-*` son los vigentes).
@@ -52,7 +52,7 @@ Configuración en `supabase/marcos/*.json` (se cargan a `legal_frameworks.config
 4. `npm run dev -- --port 5680` (entrada `cig-dominial` en el launch.json global).
 5. `npx vitest run`: motor de requisitos + pruebas de seguridad contra la base local (se saltean si la base no está arriba).
 
-**Todavía no hay base en la nube ni deploy.** Para publicar seguir `docs/PUBLICAR.md`. Nunca correr `supabase db push` contra cig-db (la base del panel actual).
+**Base en la nube: cig-db (ref zjmizljqkbfdotdpxyac)**, compartida con datos guardados del panel anterior. Las migraciones se aplican por la Management API, una por una y con OK de Gabriel; nunca `supabase db push` (cig-db no tiene historial de migraciones de la CLI).
 
 ## Seguridad y alta de municipios
 - Nadie se registra solo (`enable_signup = false`); los usuarios se crean con `scripts/alta-municipio.mjs` (contraseñas provisorias en `credenciales/`, fuera de git). Cada uno la cambia en `/cuenta`.
