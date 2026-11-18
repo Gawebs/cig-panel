@@ -103,30 +103,16 @@ Lo que quedaba pendiente del paso 1 se hizo en la etapa 4.
 ## Próximo
 Publicar siguiendo `docs/PUBLICAR.md`, alta de Banda del Río Salí, prueba con celulares reales y vigilancia del correo cuando lleguen los mails de Catastro.
 
-## EN CURSO (16-nov-2026, pausado por Gabriel): reemplazar el panel viejo por este, en la MISMA base cig-db
-Pedido de Gabriel: reemplazar cig-panel por este sistema en la misma infraestructura (base cig-db, misma cuenta de Vercel). **No pasar expedientes.** Solo quedan: las personas del ingreso (mismo nombre y contraseña) y las constancias de tenencia precaria (53, con 35 PDF). Usar el mismo logo de la muni y el mismo favicon.
+## Reemplazo del panel anterior — HECHO el 18-nov-2026
+**El sistema nuevo está en producción en cig-panel.vercel.app**, en la misma base cig-db.
+- Código: repo `Gawebs/cig-panel`, rama `main` (Vercel publica solo). El panel anterior (Vite) quedó en la rama `panel-anterior`. Este repo local (`cig-dominial`) es la fuente de trabajo: cada cambio se copia a `../cig-panel` y se sube ahí.
+- Base cig-db: migraciones aplicadas por la Management API (no `db push`), BRS dado de alta (`supabase/municipios/brs.json`), 53 constancias + 35 PDF pasadas, y `cerrar_panel_anterior` aplicada: las tablas y archivos viejos (4.753 expedientes, 92 archivos) quedan guardados pero solo para soporte. Registro libre apagado.
+- Ingreso: las 6 personas eligen su nombre y entran con la contraseña de siempre (función `panel-login`).
+- Vercel: el proyecto está en la cuenta admin@nxaia.com (equipo `admin-80077198s-projects`). Para que construya hubo que agregar `.npmrc` (saltear CUDA de onnxruntime-node) y `outputDirectory: ".next"` en `vercel.json` (el proyecto tenía `dist` de Vite).
+- Vuelta atrás si hiciera falta: Instant Rollback en Vercel a un deploy del panel anterior + reabrir políticas (ver comentario en `20261116000100_cerrar_panel_anterior.sql`).
 
-Hecho:
-- **Seguridad en la base real**: estaba abierto el registro libre (cualquiera podía crear cuenta y leer/borrar los 4.753 expedientes). Con OK de Gabriel se apagó (`disable_signup = true`) y se comprobó. Solo existen las 3 cuentas internas `@cig-brs.local`.
-- Revisión de solo lectura de cig-db: sin choques de nombres; zona horaria UTC; tablas viejas con política "cualquier sesión" (se cierran al cambiar).
-- Migración `20261116000000_ingreso_panel.sql`: `login_profiles` (quién aparece en el ingreso y con qué roles), `perfiles_de_ingreso` y `municipio_de_ingreso` (para la pantalla, abiertas a anon), `vincular_perfil_de_ingreso` (crea perfil y membresía según `app_metadata.perfil`), constancias importadas conservan su número.
-- Migración `20261116000100_cerrar_panel_anterior.sql`: deja tablas y archivos viejos solo para soporte (no borra nada).
-- Función `panel-login` copiada a `supabase/functions/` (la misma que está en cig-db).
-- Pantalla de ingreso por nombre + contraseña (`src/app/ingresar/ingreso-perfil.tsx`, `src/lib/panel-login.ts`), con `NEXT_PUBLIC_MUNICIPIO_INGRESO`. Mi cuenta cambia la contraseña por `panel-login` para esos usuarios.
-- Favicon del panel viejo (`src/app/icon.png`, iconos de la app) y logo de la muni en `supabase/municipios/brs-logo.png`.
-
-Roles acordados con Gabriel: estela → direccion; carlos → subdireccion + armado; andres → armado; emmanuel → relevamiento + armado; gonzalo y usuario → consulta.
-
-Hecho el 18-nov (ensayo completo en local, sobre la réplica de cig-panel con datos inventados):
-- Logo de la muni en el encabezado y en el ingreso; favicon del panel anterior.
-- `supabase/municipios/brs.json` (slug `brs`, 23 barrios en uso, 3 leyes, plazo 10 hábiles, 6 personas de ingreso con sus roles) y el script de alta ya carga `perfiles_de_ingreso`.
-- `scripts/importar-constancias-panel-anterior.mjs`: pasa constancias con su número original y copia los PDF; se puede repetir sin duplicar.
-- Probado: ingreso por nombre con la función real `panel-login` (contraseña equivocada rechazada, primera contraseña registrada), constancias pasadas y visibles, cierre del panel anterior (después del cierre ya no se ven sus tablas ni archivos).
-- Vercel: el proyecto del panel está en la cuenta `admin-80077198s-projects`, a la que el CLI de esta PC no tiene acceso. Se publica igual subiendo el código al repo `Gawebs/cig-panel` (Vercel publica solo). `vercel.json` fuerza Next.js, `next.config.ts` acepta las variables `VITE_*` que ya tiene ese proyecto y `.env.production` fija `NEXT_PUBLIC_MUNICIPIO_INGRESO=brs`.
-
-Falta (con OK de Gabriel), en este orden:
-1. Aplicar las migraciones a cig-db por la API, **menos** `cerrar_panel_anterior` (si se aplica antes, el panel viejo queda vacío).
-2. `alta-municipio.mjs brs.json --confirmar` y `importar-constancias-panel-anterior.mjs brs --confirmar` contra cig-db.
-3. En `Gawebs/cig-panel`: guardar el código viejo en la rama `panel-anterior` y reemplazar `main` por este código (Vercel publica solo; si el build falla, sigue el panel viejo).
-4. Probar el panel nuevo publicado, volver a correr la importación (por constancias cargadas en el medio) y recién ahí aplicar `cerrar_panel_anterior`.
-5. Decidir si se borra el repo `Gawebs/cig-dominial` (quedaría duplicado).
+Pendiente:
+- Que cada persona entre una vez (Carlos, Andrés y Gonzalo registran su contraseña la primera vez). No se probó un ingreso real en producción porque Claude no tiene contraseñas.
+- El repo `Gawebs/cig-panel` es **público** y tiene GitHub Pages activado: recomendado pasarlo a privado y apagar Pages.
+- Decidir si se borra el repo duplicado `Gawebs/cig-dominial`.
+- El workflow de keep-alive del panel anterior (`.github/workflows`) no está en el código nuevo; cig-db sigue en plan gratuito y se pausa a los 7 días sin uso.
