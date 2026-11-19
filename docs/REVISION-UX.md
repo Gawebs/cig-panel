@@ -32,6 +32,37 @@ Regla: se arregla **un punto por vez**, con OK de Gabriel, probando cada uno.
 - La Milagrosa exige el grupo familiar y pide 2 pruebas distintas por año (2023 a 2025).
 - Datos nuevos del titular, Atrás y Continuar, autoguardado y salto del Anexo I.
 
+# Segunda vuelta (18-nov-2026)
+
+Recorrido completo con **BRS-2026-0047** (Menem, local): abrir con fotos del DNI → celular → enviar a revisión (armado) → aprobar (subdirección) → firmar los 4 pasos (dirección) → presentar → observación → prórroga → reingreso → aceptado.
+
+## Graves
+
+13. **Aprobar no pide confirmación aunque falten cosas.** Se aprobó con 14 documentos y 4 datos faltantes en un solo clic. "Enviar a revisión" sí avisa; "Aprobar" debería avisar igual (o no dejar).
+14. **"Marcar como firmado" y "Catastro lo aceptó" van en un clic, sin confirmar.** "Aceptado" es el estado final: un clic de más no se puede deshacer.
+
+## Medios
+
+15. **"Próximo paso" con prórroga pedida dice "Esperando la respuesta de Catastro"**, pero hay que corregir y reingresar antes de la fecha de la prórroga. (Error del punto 9.)
+16. **"Próximo paso" en aprobado con los 4 firmados sigue diciendo "Firmá los PDF"**: debería decir "Marcalo como firmado".
+17. **Celular: si el GPS no da permiso, no hay "Siguiente" ni forma de escribir la ubicación.** Solo se sigue tocando los números de arriba, y no es obvio.
+18. **Registrar la presentación y el reingreso no avisan de los datos vacíos** (CUIL, teléfono, correo, domicilio del inmueble: en "Datos para copiar" figuran "Sin cargar").
+19. **Falta un link al portal de Catastro** en "Presentar en el portal de Catastro".
+
+## Leves
+
+20. Al subir fotos, antes de guardar solo se ven los nombres de archivo, sin miniatura para ver si salió legible.
+21. Textos internos a la vista: "A confirmar con Carlos." (reglas de Menem, sale de la configuración de la ley) y "Cuando tengamos la lista, se va a elegir de ahí." (padrón de La Milagrosa y Menem).
+
+## Anduvo bien
+
+- 2 fotos se unen en un PDF de 41 KB y quedan en el requisito.
+- Foto de DNI ilegible: avisa "No se pudo leer el código… la foto queda guardada igual" y deja cargar a mano.
+- Al abrir un Menem el barrio queda "Presidente Menem" con su localidad (punto 8).
+- Celular: la respuesta escrita a mano sube al terminar y pasa a la ficha (ocupación).
+- PDF sin firma digital: rechazado con mensaje claro. Con firma: se guardan los 4 y habilita "Marcar como firmado".
+- Presentación, observación (con vencimiento calculado), prórroga, reingreso y aceptado cambian el estado bien; el "Próximo paso" acompaña en cada uno (salvo 15 y 16).
+
 ## No probado todavía
 
-Subida real de fotos y lectura del DNI, aplicación del celular (`/campo`), firma de la Dirección, presentación, observación, prórroga y reingreso. Va en una segunda vuelta.
+Lectura del código de un DNI real (hace falta una foto de un DNI de verdad), relevamiento sin señal, fotos y croquis desde el celular, abrir los PDF firmados bajados.
