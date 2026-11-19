@@ -1,5 +1,6 @@
 'use server'
 
+import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
@@ -83,6 +84,9 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
   if (titular?.id && (d.telefono || d.ciudad || d.correo)) {
     await supabase.from('case_people').update({ telefono: d.telefono ?? null, ciudad: d.ciudad ?? null, correo: d.correo ?? null }).eq('id', titular.id)
   }
+
+  // La Milagrosa y Menem son de un solo barrio: se pone solo, con su localidad.
+  await completarBarrioDeLaLey(supabase, { id, framework_id: d.ley, municipality_id: ctx.municipio.id, neighborhood_id: null, locality_id: null })
 
   revalidatePath('/')
   // La pantalla sube las fotos del DNI (si hay) y después navega a la ficha.

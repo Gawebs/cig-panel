@@ -11,6 +11,7 @@ import { AccionEstado } from './accion-estado'
 import { datosFaltantes, type DondeSeCarga, type ExpedienteDatos, type PersonaDatos } from '@/lib/datos-obligatorios'
 import { FormDatosCatastro } from './form-datos-catastro'
 import { FormInmueble } from './form-inmueble'
+import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
 import { Personas, type PersonaFila } from './personas'
 import { SeccionCatastro, type Observacion } from './catastro'
 
@@ -29,11 +30,14 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
   const ctx = await obtenerContexto()
   const supabase = await createClient()
 
-  const { data: exp } = await supabase
+  const { data: leido } = await supabase
     .from('case_files')
     .select('*, legal_frameworks(nombre, nombre_corto, valor_catastro, config)')
     .eq('id', id)
     .maybeSingle()
+  // La Milagrosa y Menem son de un solo barrio: si quedó vacío, se pone solo (con su localidad).
+  const barrioPuesto = leido ? await completarBarrioDeLaLey(supabase, leido) : null
+  const exp = leido && barrioPuesto ? { ...leido, ...barrioPuesto } : leido
   if (!exp) notFound()
 
   const [{ data: personasSinOrden }, { data: documentos }, { data: eventos }, { data: barrios }, { data: relevamiento }] = await Promise.all([
