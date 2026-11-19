@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CamaraGuiada } from '@/components/camara-guiada'
 import { comprimirImagen } from '@/lib/escaneo'
 import {
   guardarArchivo, guardarRelevamiento, leerArchivo, leerRelevamiento, relevamientoDe,
@@ -276,7 +277,10 @@ function Fotos({ r, actualizar, siguiente }: { r: RelevamientoCampo; actualizar:
   const [procesando, setProcesando] = useState<ClaveFoto | null>(null)
   const [error, setError] = useState('')
 
-  const cargar = async (clave: ClaveFoto, archivo: File | undefined) => {
+  const [camara, setCamara] = useState<ClaveFoto | null>(null)
+
+  const cargar = async (clave: ClaveFoto, archivo: Blob | undefined) => {
+    setCamara(null)
     if (!archivo) return
     setError('')
     setProcesando(clave)
@@ -302,8 +306,8 @@ function Fotos({ r, actualizar, siguiente }: { r: RelevamientoCampo; actualizar:
       {error && <p className="text-sm text-error">{error}</p>}
       <div className="grid grid-cols-2 gap-3">
         {FOTOS.map((f) => (
-          <label key={f.clave} className="tarjeta flex cursor-pointer flex-col overflow-hidden">
-            <span className="relative grid aspect-[4/3] place-items-center bg-fondo text-center text-sm text-tenue">
+          <button key={f.clave} type="button" onClick={() => setCamara(f.clave)} className="tarjeta flex flex-col overflow-hidden text-left">
+            <span className="relative grid aspect-[4/3] w-full place-items-center bg-fondo text-center text-sm text-tenue">
               {r.fotos[f.clave] ? <Miniatura id={r.fotos[f.clave]!} /> : procesando === f.clave ? 'Guardando…' : <span className="px-3">Tocá para sacar la foto</span>}
               {r.fotos[f.clave] && <span className="absolute right-2 top-2 rounded-full bg-ok px-2 py-0.5 text-xs font-semibold text-white">✓</span>}
             </span>
@@ -312,21 +316,23 @@ function Fotos({ r, actualizar, siguiente }: { r: RelevamientoCampo; actualizar:
               <span className="block text-xs text-tenue">{f.guia}</span>
               {r.fotos[f.clave] && <span className="mt-1 block text-xs font-semibold text-azul">Tocá para volver a sacarla</span>}
             </span>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="sr-only"
-              aria-label={`Foto: ${f.titulo}`}
-              onChange={(e) => {
-                cargar(f.clave, e.target.files?.[0])
-                e.target.value = ''
-              }}
-            />
-          </label>
+          </button>
         ))}
       </div>
       {completas && <button className="boton" onClick={siguiente}>Seguir con el croquis</button>}
+      {camara && (() => {
+        const f = FOTOS.find((x) => x.clave === camara)!
+        return (
+          <CamaraGuiada
+            titulo={`Foto: ${f.titulo}`}
+            guia={f.guia}
+            tipo="vivienda"
+            forma="horizontal"
+            alCapturar={(foto) => cargar(f.clave, foto)}
+            alCerrar={() => setCamara(null)}
+          />
+        )
+      })()}
     </section>
   )
 }

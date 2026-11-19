@@ -83,3 +83,17 @@ No se usan: Ley 8415 (San Eduardo) ni Ley 9850 (El Parquecito, SMT).
 
 - Acceso GIS (`aplicaciones.catastrotucuman.gov.ar/acceso-seguro/login_gis.html`), de donde se copian los datos catastrales por padrón. Usa otro ingreso.
 - La nómina de padrones de Milagrosa y Menem: conviene pedirle a Catastro el listado (Excel) para cargarlo en nuestro sistema y buscar por lote o beneficiario.
+
+## Entrada automática al portal (relevado el 19-nov-2026, con la sesión de Carlos, solo lectura)
+
+- Ingreso: `POST https://servicios.catastrotucuman.gov.ar/tramites-web/EscrituracionSocial/Inicio/inicio.php` con `tipo_login`, `cuitcuil` (99-99999999-9), `idcta`, `clave`. **Sin captcha ni token**: un servidor puede entrar solo y quedarse con la cookie de sesión. Después lleva a `/tramites-web/Inicio/Principal/principal.php` ("Mis Trámites Web").
+- Nómina de padrones: `GET /tramites-web/EscrituracionSocial/consultarNominaPadrones.php?marco_normativo=Ley%205670` (o `Ley 8162`) → `{exito, datos:[{plano, padron, detalle}]}`. `detalle` = "PADRON: n - APELLIDO, NOMBRE - DNI: n - Mnza : X - Lote : n". Al 19-nov: 5670 = 160 padrones en 3 planos (151 con beneficiario y DNI); 8162 = 59 padrones en 1 plano, sin beneficiario cargado.
+- `chequeoPadron.php` (POST) valida padrón + CUIT antes de presentar; no se probó.
+- **Los datos catastrales por padrón (nomenclatura, matrícula, dominio) NO salen del portal**: están en el Acceso GIS, con otro usuario (usuario, cuenta GIS y contraseña GIS). Falta saber si Carlos tiene usuario GIS.
+
+## Acceso GIS: de dónde salen los datos catastrales (relevado el 19-nov-2026, solo lectura)
+
+Recorrido del técnico: entrar al GIS (`aplicaciones.catastrotucuman.gov.ar`, cuenta de "TECNICOS REG DOMINIAL, Municipalidad de La Banda del Rio Sali") → CONSULTAS → Padrón → dos pantallas:
+- **Datos Parcelarios Generales** (`frmInfoPadronGral.asp`): rótulo arriba y valor abajo. CATEGORÍA PARCELARIA, MUNICIPIO, CARÁCTER PARCELARIO, FECHA DE CREACIÓN, DEPARTAMENTO, CIRCUNSCRIPCIÓN, SECCIÓN, LÁMINA, MANZANA, MANZANA PARCELA, PARCELA, SUBPARCELA, CÓDIGO DE ORIGEN, MATRÍCULA CATASTRAL, ORDEN CATASTRAL, PADRONES ORÍGENES.
+- **Antecedentes de Dominio** (`frmConsultaMatriculasyTit.asp`): titular (nombre), MATRÍCULA (ej. "A -11846"), LIBRO / FOLIO / SERIE, DOCUMENTO, CUIT / CUIL, PERSONA, PORCENTAJE, TIPO DOMINIO, ACTUALIZACIÓN.
+Decisión de Gabriel (19-nov): NO entrar solo. El técnico entra a mano con su usuario y saca una foto de estas pantallas desde el sistema; el sistema la lee y llena "Datos de Catastro".

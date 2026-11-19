@@ -68,6 +68,27 @@ export async function unirEnPdf(archivos: File[]): Promise<{ bytes: Uint8Array; 
   return { bytes: await pdf.save(), paginas: pdf.getPageCount() }
 }
 
+type Zxing = typeof import('@zxing/library')
+let zxingCargado: Promise<Zxing> | null = null
+
+/**
+ * Busca el código PDF417 en una imagen ya dibujada (cuadro de la cámara en vivo).
+ * Un solo intento, sin giros: la cámara guiada ya muestra el DNI derecho.
+ */
+export async function leerCodigoEnCanvas(canvas: HTMLCanvasElement): Promise<string | null> {
+  zxingCargado ??= import('@zxing/library')
+  const zxing = await zxingCargado
+  const hints = new Map()
+  hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, [zxing.BarcodeFormat.PDF_417])
+  hints.set(zxing.DecodeHintType.TRY_HARDER, true)
+  try {
+    const fuente = new zxing.HTMLCanvasElementLuminanceSource(canvas)
+    return new zxing.PDF417Reader().decode(new zxing.BinaryBitmap(new zxing.HybridBinarizer(fuente)), hints).getText()
+  } catch {
+    return null
+  }
+}
+
 /** Lee el código PDF417 del frente del DNI. Devuelve el texto crudo o null. */
 export async function leerCodigoDni(foto: Blob): Promise<string | null> {
   const zxing = await import('@zxing/library')
