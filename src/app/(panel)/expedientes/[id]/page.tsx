@@ -12,6 +12,7 @@ import { datosFaltantes, type DondeSeCarga, type ExpedienteDatos, type PersonaDa
 import { FormDatosCatastro } from './form-datos-catastro'
 import { FormInmueble } from './form-inmueble'
 import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
+import { proximoPaso } from '@/lib/proximo-paso'
 import { Personas, type PersonaFila } from './personas'
 import { SeccionCatastro, type Observacion } from './catastro'
 
@@ -84,6 +85,17 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
     ddjj: { href: `/expedientes/${id}/formularios/ddjj`, texto: 'Abrir la declaración jurada' },
   }
 
+  const primerDoc = [...checklist.faltantes].sort((a, b) => a.paso - b.paso)[0]
+  const siguiente = proximoPaso({
+    estado,
+    roles: ctx.roles,
+    datoFaltante: faltanDatos[0] && { texto: faltanDatos[0].texto, href: IR_A[faltanDatos[0].donde].href, boton: IR_A[faltanDatos[0].donde].texto },
+    cantidadDatosFaltantes: faltanDatos.length,
+    documentoFaltante: primerDoc && { paso: primerDoc.paso, titulo: primerDoc.titulo, persona: primerDoc.personaNombre, href: `#req-${primerDoc.id}` },
+    cantidadDocumentosFaltantes: checklist.faltantes.length,
+  })
+  const TONO_PROXIMO = { hacer: 'border-azul bg-azul-suave', esperar: 'border-linea bg-fondo', listo: 'border-ok bg-ok-suave' } as const
+
   const acciones = ACCIONES.filter((a) => a.desde.includes(estado) && a.roles.some((r) => ctx.roles.includes(r)))
   const ultimaDevolucion = (eventos ?? []).find((e) => e.a_estado === 'devuelto')
 
@@ -100,6 +112,21 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
           <span className="text-sm text-tenue">Abierto el {new Date(`${exp.fecha_apertura}T12:00:00`).toLocaleDateString('es-AR')}</span>
         </div>
       </div>
+
+      {siguiente && (
+        <section aria-label="Próximo paso" className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 px-5 py-4 ${TONO_PROXIMO[siguiente.tono]}`}>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-tenue">{siguiente.tono === 'esperar' ? 'Ahora' : siguiente.tono === 'listo' ? 'Terminado' : 'Próximo paso'}</p>
+            <p className="text-lg font-semibold">{siguiente.titulo}</p>
+            {siguiente.detalle && <p className="text-sm text-tenue">{siguiente.detalle}</p>}
+          </div>
+          {siguiente.boton && (
+            siguiente.boton.href.startsWith('#')
+              ? <a href={siguiente.boton.href} className="boton-principal shrink-0">{siguiente.boton.texto} →</a>
+              : <Link href={siguiente.boton.href} className="boton-principal shrink-0">{siguiente.boton.texto} →</Link>
+          )}
+        </section>
+      )}
 
       {estado === 'devuelto' && ultimaDevolucion?.nota && (
         <div role="alert" className="rounded-xl border border-error bg-error-suave px-5 py-4 text-error">
@@ -150,7 +177,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
       )}
 
       {acciones.length > 0 && (
-        <section className="tarjeta flex flex-wrap items-start gap-3 p-4">
+        <section id="acciones" className="tarjeta flex scroll-mt-4 flex-wrap items-start gap-3 p-4">
           {acciones.map((a) => (
             <AccionEstado
               key={a.hacia}
@@ -202,7 +229,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                   />
                   <ul className="mt-3 grid gap-2">
                     {p.items.map((i) => (
-                      <li key={i.id} className="flex items-start gap-3 rounded-lg border border-linea px-3 py-2">
+                      <li key={i.id} id={`req-${i.id}`} className="flex scroll-mt-4 items-start gap-3 rounded-lg border border-linea px-3 py-2 target:border-azul target:ring-2 target:ring-azul">
                         <span className={`mt-1 inline-block size-2.5 shrink-0 rounded-full ${i.completo ? 'bg-ok' : 'bg-error'}`} aria-hidden />
                         <div className="min-w-0 flex-1">
                           <span className="block">{i.titulo}</span>
@@ -247,6 +274,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             </p>
           </section>
 
+          <div id="catastro" className="-mb-6 scroll-mt-4" aria-hidden />
           <SeccionCatastro
             expedienteId={id}
             municipioId={exp.municipality_id}
