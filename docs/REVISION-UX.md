@@ -38,21 +38,21 @@ Recorrido completo con **BRS-2026-0047** (Menem, local): abrir con fotos del DNI
 
 ## Graves
 
-13. **Aprobar no pide confirmación aunque falten cosas.** Se aprobó con 14 documentos y 4 datos faltantes en un solo clic. "Enviar a revisión" sí avisa; "Aprobar" debería avisar igual (o no dejar).
-14. **"Marcar como firmado" y "Catastro lo aceptó" van en un clic, sin confirmar.** "Aceptado" es el estado final: un clic de más no se puede deshacer.
+13. ✅ *Resuelto: pide confirmación y dice qué falta.* **Aprobar no pide confirmación aunque falten cosas.** Se aprobó con 14 documentos y 4 datos faltantes en un solo clic. "Enviar a revisión" sí avisa; "Aprobar" debería avisar igual (o no dejar).
+14. ✅ *Resuelto: los dos piden confirmación.* **"Marcar como firmado" y "Catastro lo aceptó" van en un clic, sin confirmar.** "Aceptado" es el estado final: un clic de más no se puede deshacer.
 
 ## Medios
 
-15. **"Próximo paso" con prórroga pedida dice "Esperando la respuesta de Catastro"**, pero hay que corregir y reingresar antes de la fecha de la prórroga. (Error del punto 9.)
-16. **"Próximo paso" en aprobado con los 4 firmados sigue diciendo "Firmá los PDF"**: debería decir "Marcalo como firmado".
-17. **Celular: si el GPS no da permiso, no hay "Siguiente" ni forma de escribir la ubicación.** Solo se sigue tocando los números de arriba, y no es obvio.
-18. **Registrar la presentación y el reingreso no avisan de los datos vacíos** (CUIL, teléfono, correo, domicilio del inmueble: en "Datos para copiar" figuran "Sin cargar").
-19. **Falta un link al portal de Catastro** en "Presentar en el portal de Catastro".
+15. ✅ *Resuelto: "Corregí lo observado y reingresalo antes del …".* **"Próximo paso" con prórroga pedida dice "Esperando la respuesta de Catastro"**, pero hay que corregir y reingresar antes de la fecha de la prórroga. (Error del punto 9.)
+16. ✅ *Resuelto.* **"Próximo paso" en aprobado con los 4 firmados sigue diciendo "Firmá los PDF"**: debería decir "Marcalo como firmado".
+17. ✅ *Resuelto: botón "Seguir sin ubicación" y coordenadas escritas a mano (quedan como "escrita a mano").* **Celular: si el GPS no da permiso, no hay "Siguiente" ni forma de escribir la ubicación.** Solo se sigue tocando los números de arriba, y no es obvio.
+18. ✅ *Resuelto: aviso con la lista y confirmación antes de registrar.* **Registrar la presentación y el reingreso no avisan de los datos vacíos** (CUIL, teléfono, correo, domicilio del inmueble: en "Datos para copiar" figuran "Sin cargar").
+19. ✅ *Resuelto: botón "Abrir el portal de Catastro". Además se corrigió el link al GIS: Catastro lo movió a `servicios.catastrotucuman.gov.ar` y el viejo daba 404.* **Falta un link al portal de Catastro** en "Presentar en el portal de Catastro".
 
 ## Leves
 
-20. Al subir fotos, antes de guardar solo se ven los nombres de archivo, sin miniatura para ver si salió legible.
-21. Textos internos a la vista: "A confirmar con Carlos." (reglas de Menem, sale de la configuración de la ley) y "Cuando tengamos la lista, se va a elegir de ahí." (padrón de La Milagrosa y Menem).
+20. ✅ *Resuelto: miniaturas numeradas, se ven grandes y se puede sacar cada una.* Al subir fotos, antes de guardar solo se ven los nombres de archivo, sin miniatura para ver si salió legible.
+21. ✅ *Resuelto (también en cig-db).* Textos internos a la vista: "A confirmar con Carlos." (reglas de Menem, sale de la configuración de la ley) y "Cuando tengamos la lista, se va a elegir de ahí." (padrón de La Milagrosa y Menem).
 
 ## Anduvo bien
 
@@ -66,3 +66,12 @@ Recorrido completo con **BRS-2026-0047** (Menem, local): abrir con fotos del DNI
 ## No probado todavía
 
 Lectura del código de un DNI real (hace falta una foto de un DNI de verdad), relevamiento sin señal, fotos y croquis desde el celular, abrir los PDF firmados bajados.
+
+## Lo que queda (no depende del código)
+
+- **5.** Pedirle a Catastro el listado de padrones de La Milagrosa y Menem para cargarlo.
+- **6.** Confirmar con Carlos las actas de nacimiento del solicitante y el cónyuge en La Milagrosa y Menem, y las reglas de años de Menem.
+- **3.** Decidir con Carlos si el origen y la fecha de la posesión se pasan a la ficha (hoy se cargan en la declaración jurada, con aviso).
+- **Probar con Carlos:** la lectura del código de un DNI real con su celular, el relevamiento sin señal y las fotos/croquis desde el celular.
+
+Nota: en local, BRS-2026-0010 quedó "Reingresado" y BRS-2026-0047 "Aceptado" por esta prueba.

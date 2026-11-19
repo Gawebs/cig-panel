@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { enlaceDocumento, quitarDocumento } from '@/actions/documentos'
 import { esServicioOImpuesto } from '@/lib/requisitos'
@@ -131,9 +131,10 @@ export function CargaDocumento(props: {
             </label>
           )}
           {paginas.length > 0 && (
-            <p className="text-sm text-azul">
-              {paginas.length} página(s) lista(s) para unir en un PDF: {paginas.map((p) => p.name).join(', ')}
-            </p>
+            <div className="grid gap-1.5">
+              <p className="text-sm text-azul">{paginas.length} página(s) lista(s) para unir en un PDF. Mirá que se lean bien antes de guardar.</p>
+              <Miniaturas paginas={paginas} quitar={(i) => setPaginas((prev) => prev.filter((_, j) => j !== i))} />
+            </div>
           )}
           <div className="flex flex-wrap gap-2">
             <input ref={camara} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { agregar(e.target.files); e.target.value = '' }} />
@@ -155,5 +156,26 @@ export function CargaDocumento(props: {
       )}
       {error && <p role="alert" className="text-sm text-error">{error}</p>}
     </div>
+  )
+}
+
+/** Vista previa de lo que se va a guardar, para ver si la foto salió legible. Cada una se puede sacar. */
+function Miniaturas({ paginas, quitar }: { paginas: File[]; quitar: (i: number) => void }) {
+  const urls = useMemo(() => paginas.map((p) => (p.type.startsWith('image/') ? URL.createObjectURL(p) : '')), [paginas])
+  useEffect(() => () => urls.forEach((x) => x && URL.revokeObjectURL(x)), [urls])
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {paginas.map((p, i) => (
+        <li key={`${p.name}-${i}`} className="relative">
+          {urls[i]
+            ? <a href={urls[i]} target="_blank" rel="noreferrer" title="Ver grande">
+                {/* eslint-disable-next-line @next/next/no-img-element -- foto local del celular, sin pasar por el servidor */}
+                <img src={urls[i]} alt={`Página ${i + 1}`} className="h-24 w-24 rounded-md border border-linea object-cover" /></a>
+            : <span className="grid h-24 w-24 place-items-center rounded-md border border-linea bg-fondo text-xs text-tenue">PDF<br />{p.name.slice(0, 14)}</span>}
+          <button type="button" onClick={() => quitar(i)} aria-label={`Sacar la página ${i + 1}`} className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full bg-error text-sm font-bold text-white">×</button>
+          <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 text-xs text-white">{i + 1}</span>
+        </li>
+      ))}
+    </ul>
   )
 }

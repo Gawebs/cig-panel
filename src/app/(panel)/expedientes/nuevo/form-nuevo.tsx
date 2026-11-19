@@ -103,7 +103,7 @@ export function FormNuevo({ leyes }: { leyes: LeyOpcion[] }) {
             <h2 className="text-xl">Padrón</h2>
             <p className="-mt-2 text-sm text-tenue">
               {elegida.usaNomina
-                ? 'En este barrio Catastro trabaja con una lista fija de padrones. Cuando tengamos la lista, se va a elegir de ahí.'
+                ? 'En este barrio Catastro trabaja con una lista fija de padrones. Copiá el padrón tal cual figura en esa lista.'
                 : 'Catastro no deja corregir el padrón después de presentado: escribilo dos veces. Si todavía no se encontró, dejalo vacío.'}
             </p>
             <div className="grid gap-4 sm:grid-cols-2">

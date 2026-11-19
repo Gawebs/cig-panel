@@ -4,6 +4,7 @@ import { textoError } from '@/lib/errores'
 import { useActionState, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { enlaceDocumento } from '@/actions/documentos'
+import { CATASTRO_PORTAL } from '@/lib/catastro-enlaces'
 import { presentarEnCatastro, registrarFirmado, registrarObservacion, registrarProrroga, registrarReingreso } from '@/actions/catastro'
 import { DescargaPaso } from '@/components/descarga-paso'
 import { nombreFirmado, tieneFirmaDigital } from '@/lib/firma'
@@ -150,15 +151,17 @@ function BajarFirmado({ expedienteId, documentoId, nombre }: { expedienteId: str
   )
 }
 
-function Formulario({ accion, boton, children, principal }: {
+function Formulario({ accion, boton, children, principal, confirmar }: {
   accion: (prev: { error?: string; ok?: string } | undefined, f: FormData) => Promise<{ error?: string; ok?: string }>
   boton: string
   principal?: boolean
   children: React.ReactNode
+  /** Si viene, se pregunta antes de guardar. */
+  confirmar?: string
 }) {
   const [estado, enviar, enviando] = useActionState(accion, undefined)
   return (
-    <form action={enviar} className="grid gap-2">
+    <form action={enviar} onSubmit={(e) => { if (confirmar && !window.confirm(confirmar)) e.preventDefault() }} className="grid gap-2">
       {children}
       <div><button disabled={enviando} className={principal ? 'boton-principal' : 'boton'}>{enviando ? 'Guardando…' : boton}</button></div>
       {estado?.error && <p role="alert" className="text-sm text-error">{estado.error}</p>}
@@ -180,6 +183,8 @@ export function SeccionCatastro(props: {
   fechaPresentacion: string | null
   observaciones: Observacion[]
   datosPortal: { etiqueta: string; valor: string | null }[]
+  /** Datos obligatorios que siguen vacíos: se avisan antes de presentar o reingresar. */
+  faltanDatos: string[]
 }) {
   const { estado } = props
   const firmaAbierta = ['aprobado', 'observado', 'prorroga_pedida'].includes(estado)
@@ -189,6 +194,16 @@ export function SeccionCatastro(props: {
   const firmadoDe = (paso: number) => props.firmados.find((f) => f.paso === paso)
   const faltanFirmas = props.pasos.filter((p) => !firmadoDe(p.paso)).length
   const abierta = props.observaciones.find((o) => o.estado !== 'respondida')
+  const avisoFaltan = props.faltanDatos.length > 0 && (
+    <div className="rounded-lg border border-aviso bg-aviso-suave p-3 text-sm">
+      <p className="font-semibold text-aviso">Faltan {props.faltanDatos.length} dato(s) que pide Catastro:</p>
+      <ul className="mt-1 grid gap-0.5">{props.faltanDatos.map((t) => <li key={t}>• {t}</li>)}</ul>
+      <p className="mt-1 text-tenue">Cargalos en la ficha antes de presentar: si no, el portal no lo acepta o Catastro lo observa.</p>
+    </div>
+  )
+  const confirmarFaltan = props.faltanDatos.length
+    ? `Faltan ${props.faltanDatos.length} dato(s) que pide Catastro (${props.faltanDatos.join('; ')}). ¿Lo registrás igual?`
+    : undefined
 
   return (
     <section className="tarjeta overflow-hidden">
@@ -246,10 +261,12 @@ export function SeccionCatastro(props: {
             <p className="text-sm text-tenue">
               En el portal, elegí el marco normativo y completá cada campo con el botón Copiar. En cada uno de los 4 pasos subí el PDF firmado que corresponde.
             </p>
+            <a href={CATASTRO_PORTAL} target="_blank" rel="noopener noreferrer" className="boton w-fit">Abrir el portal de Catastro ↗</a>
+            {avisoFaltan}
             <div className="grid gap-2 sm:grid-cols-2">
               {props.datosPortal.map((d) => <Copiar key={d.etiqueta} etiqueta={d.etiqueta} valor={d.valor} />)}
             </div>
-            <Formulario accion={presentarEnCatastro.bind(null, props.expedienteId)} boton="Registrar la presentación" principal>
+            <Formulario accion={presentarEnCatastro.bind(null, props.expedienteId)} boton="Registrar la presentación" principal confirmar={confirmarFaltan}>
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="grid gap-1 text-sm">
                   <span className="font-semibold">N.º de expediente que dio Catastro</span>
@@ -292,7 +309,8 @@ export function SeccionCatastro(props: {
             <div className="rounded-lg border border-linea p-3">
               <h4 className="font-semibold">Ya se corrigió y se reingresó</h4>
               <p className="mb-2 text-sm text-tenue">Corregí lo observado en la ficha y, si hace falta, que la Dirección vuelva a firmar el paso.</p>
-              <Formulario accion={registrarReingreso.bind(null, props.expedienteId)} boton="Registrar reingreso" principal>
+              {avisoFaltan && <div className="mb-2">{avisoFaltan}</div>}
+              <Formulario accion={registrarReingreso.bind(null, props.expedienteId)} boton="Registrar reingreso" principal confirmar={confirmarFaltan}>
                 <input name="fecha" type="date" defaultValue={hoyIso()} max={hoyIso()} required className="campo" aria-label="Fecha de reingreso" />
                 <input name="nota" placeholder="Qué se corrigió (opcional)" className="campo" />
               </Formulario>

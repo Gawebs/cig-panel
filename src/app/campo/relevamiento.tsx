@@ -127,6 +127,7 @@ function Ubicacion({ r, actualizar, siguiente }: { r: RelevamientoCampo; actuali
   const [lectura, setLectura] = useState<GeolocationPosition | null>(null)
   const [error, setError] = useState('')
   const [buscando, setBuscando] = useState(false)
+  const [aMano, setAMano] = useState('')
   const vigilancia = useRef<number | null>(null)
 
   const parar = () => {
@@ -163,6 +164,15 @@ function Ubicacion({ r, actualizar, siguiente }: { r: RelevamientoCampo; actuali
     }))
   }
 
+  // Sin GPS: se pegan las coordenadas como las da Google Maps (precisión 0 = escritas a mano).
+  const usarAMano = async () => {
+    const m = aMano.trim().match(/^(-?\d{1,2}\.\d+),\s?(-?\d{1,3}\.\d+)$/)
+    if (!m) { setError('Pegalas como las da Google Maps: -26.832206,-65.195481'); return }
+    setError('')
+    await actualizar((x) => ({ ...x, gps: { lat: Number(m[1]), lng: Number(m[2]), precision: 0, fecha: new Date().toISOString() } }))
+    setAMano('')
+  }
+
   const precision = lectura?.coords.accuracy
   return (
     <section className="tarjeta grid gap-3 p-4">
@@ -173,7 +183,7 @@ function Ubicacion({ r, actualizar, siguiente }: { r: RelevamientoCampo; actuali
         <div className="rounded-lg bg-ok-suave p-3">
           <p className="etiqueta">Guardada</p>
           <p className="font-mono text-lg">{r.gps.lat.toFixed(6)},{r.gps.lng.toFixed(6)}</p>
-          <p className="text-sm text-tenue">Precisión {Math.round(r.gps.precision)} m · {new Date(r.gps.fecha).toLocaleString('es-AR')}</p>
+          <p className="text-sm text-tenue">{r.gps.precision === 0 ? 'Escrita a mano' : `Precisión ${Math.round(r.gps.precision)} m`} · {new Date(r.gps.fecha).toLocaleString('es-AR')}</p>
         </div>
       )}
 
@@ -196,8 +206,19 @@ function Ubicacion({ r, actualizar, siguiente }: { r: RelevamientoCampo; actuali
             <button className="boton" onClick={parar}>Cancelar</button>
           </>
         )}
-        {r.gps && !buscando && <button className="boton" onClick={siguiente}>Seguir con las fotos</button>}
+        {!buscando && <button className="boton" onClick={siguiente}>{r.gps ? 'Seguir con las fotos' : 'Seguir sin ubicación'}</button>}
       </div>
+
+      {!buscando && (
+        <details className="rounded-lg border border-linea p-3" open={Boolean(error) && !r.gps}>
+          <summary className="cursor-pointer text-sm font-semibold">¿No anda el GPS? Escribí las coordenadas</summary>
+          <p className="mt-1 text-sm text-tenue">En Google Maps, mantené apretado el punto de la casa y copiá los números que aparecen arriba.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <input value={aMano} onChange={(e) => setAMano(e.target.value)} placeholder="-26.832206,-65.195481" inputMode="decimal" aria-label="Coordenadas escritas a mano" className="campo min-w-0 flex-1" />
+            <button className="boton" onClick={usarAMano} disabled={!aMano.trim()}>Guardar</button>
+          </div>
+        </details>
+      )}
     </section>
   )
 }
@@ -296,7 +317,7 @@ function Terminar(props: {
 }) {
   const { r, hecho } = props
   const items: { seccion: Seccion; texto: string; ok: boolean }[] = [
-    { seccion: 'ubicacion', texto: r.gps ? `Ubicación tomada (precisión ${Math.round(r.gps.precision)} m)` : 'Falta la ubicación', ok: hecho.ubicacion },
+    { seccion: 'ubicacion', texto: r.gps ? (r.gps.precision === 0 ? 'Ubicación escrita a mano' : `Ubicación tomada (precisión ${Math.round(r.gps.precision)} m)`) : 'Falta la ubicación', ok: hecho.ubicacion },
     { seccion: 'fotos', texto: `${props.fotos} de 4 fotos`, ok: hecho.fotos },
     { seccion: 'croquis', texto: hecho.croquis ? 'Croquis dibujado' : 'Falta el croquis', ok: hecho.croquis },
     { seccion: 'entrevista', texto: `${props.respondidas} de ${props.totalPreguntas} respuestas`, ok: hecho.entrevista },

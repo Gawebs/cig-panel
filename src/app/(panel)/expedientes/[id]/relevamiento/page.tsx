@@ -52,7 +52,7 @@ export default async function RevisarRelevamiento({ params }: { params: Promise<
         <p className="text-tenue">
           {rel.estado === 'en_curso' ? 'En curso' : rel.estado === 'completo' ? 'Terminado en el lugar' : 'Revisado'} · {new Date(`${rel.fecha}T12:00:00`).toLocaleDateString('es-AR')}
           {relevador ? ` · ${relevador}` : ''}
-          {rel.gps_lat !== null ? ` · GPS ${Number(rel.gps_lat).toFixed(6)},${Number(rel.gps_lng).toFixed(6)} (±${Math.round(rel.gps_precision_m ?? 0)} m)` : ''}
+          {rel.gps_lat !== null ? ` · GPS ${Number(rel.gps_lat).toFixed(6)},${Number(rel.gps_lng).toFixed(6)}${Number(rel.gps_precision_m) === 0 ? " (escrita a mano)" : ` (±${Math.round(rel.gps_precision_m ?? 0)} m)`}` : ''}
         </p>
       </div>
       <RevisionRespuestas

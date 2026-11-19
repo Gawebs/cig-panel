@@ -93,8 +93,23 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
     cantidadDatosFaltantes: faltanDatos.length,
     documentoFaltante: primerDoc && { paso: primerDoc.paso, titulo: primerDoc.titulo, persona: primerDoc.personaNombre, href: `#req-${primerDoc.id}` },
     cantidadDocumentosFaltantes: checklist.faltantes.length,
+    firmados: new Set((documentos ?? []).filter((d) => d.requisito === 'pdf_firmado').map((d) => d.paso)).size,
+    prorrogaHasta: (() => {
+      const h = (observaciones ?? []).find((o) => o.estado !== 'respondida' && o.prorroga_hasta)?.prorroga_hasta
+      return h ? new Date(`${h}T12:00:00`).toLocaleDateString('es-AR') : undefined
+    })(),
   })
   const TONO_PROXIMO = { hacer: 'border-azul bg-azul-suave', esperar: 'border-linea bg-fondo', listo: 'border-ok bg-ok-suave' } as const
+
+  // Confirmación antes de los cambios de estado que importan: si falta algo, se dice qué.
+  const falta = [checklist.faltantes.length ? `${checklist.faltantes.length} documento(s)` : '', faltanDatos.length ? `${faltanDatos.length} dato(s)` : ''].filter(Boolean).join(' y ')
+  const avisoDe = (hacia: string): string | undefined => {
+    if (hacia === 'listo_para_revisar') return falta ? `Todavía faltan ${falta}. Podés enviarlo igual, pero en la revisión va a figurar incompleto.` : undefined
+    if (hacia === 'aprobado') return falta ? `Ojo: faltan ${falta}. Si lo aprobás así, Catastro lo va a observar. ¿Lo aprobás igual?` : '¿Confirmás que lo revisaste y está todo bien? Pasa a la firma de la Dirección.'
+    if (hacia === 'firmado') return '¿Confirmás que los 4 PDF subidos son los firmados? Después ya no se cambian hasta que Catastro responda.'
+    if (hacia === 'aceptado') return '¿Catastro lo aceptó de verdad? Es el último estado: después no se puede volver atrás.'
+    return undefined
+  }
 
   const acciones = ACCIONES.filter((a) => a.desde.includes(estado) && a.roles.some((r) => ctx.roles.includes(r)))
   const ultimaDevolucion = (eventos ?? []).find((e) => e.a_estado === 'devuelto')
@@ -186,7 +201,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
               texto={a.texto}
               pideNota={a.pideNota}
               principal={a.principal}
-              aviso={a.hacia === 'listo_para_revisar' && (!checklist.completo || faltanDatos.length) ? `Todavía faltan ${[checklist.faltantes.length ? `${checklist.faltantes.length} documento(s)` : '', faltanDatos.length ? `${faltanDatos.length} dato(s)` : ''].filter(Boolean).join(' y ')}. Podés enviarlo igual, pero en la revisión va a figurar incompleto.` : undefined}
+              aviso={avisoDe(a.hacia)}
             />
           ))}
         </section>
@@ -296,6 +311,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             numeroCatastro={exp.numero_expediente_catastro}
             fechaPresentacion={exp.fecha_presentacion}
             observaciones={(observaciones ?? []) as Observacion[]}
+            faltanDatos={faltanDatos.map((f) => f.texto)}
             datosPortal={[
               { etiqueta: 'Marco normativo', valor: ley.valor_catastro },
               { etiqueta: 'Padrón', valor: exp.padron },

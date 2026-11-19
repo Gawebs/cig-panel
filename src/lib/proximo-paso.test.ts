@@ -20,6 +20,10 @@ describe('próximo paso', () => {
     expect(proximoPaso({ ...base, estado: 'aprobado', roles: ['direccion'] })?.boton?.href).toBe('#catastro')
     expect(proximoPaso({ ...base, roles: ['consulta'] })?.tono).toBe('esperar')
   })
+  it('firma completa y prórroga', () => {
+    expect(proximoPaso({ ...base, estado: 'aprobado', roles: ['direccion'], firmados: 4 })?.titulo).toBe('Están los 4 firmados: marcalo como firmado')
+    expect(proximoPaso({ ...base, estado: 'prorroga_pedida', roles: ['subdireccion'], prorrogaHasta: '18/12/2026' })?.titulo).toBe('Corregí lo observado y reingresalo antes del 18/12/2026')
+  })
   it('terminado y cerrado', () => {
     expect(proximoPaso({ ...base, estado: 'aceptado' })?.tono).toBe('listo')
     expect(proximoPaso({ ...base, estado: 'desistido' })).toBeNull()

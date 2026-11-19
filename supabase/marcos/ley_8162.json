@@ -34,7 +34,7 @@
     ],
     "pruebas_posesion": {
       "paso": 3,
-      "descripcion": "Posesión de por lo menos 5 años antes del año 2003 (fecha exigida por la ley) y ocupación actual, con mínimo 2 pruebas distintas del año en curso. A confirmar con Carlos.",
+      "descripcion": "Posesión de por lo menos 5 años antes del año 2003 (fecha exigida por la ley) y ocupación actual, con mínimo 2 pruebas distintas del año en curso.",
       "anios_previos_a": 2003,
       "cantidad_anios": 5,
       "incluir_anio_en_curso": true,
