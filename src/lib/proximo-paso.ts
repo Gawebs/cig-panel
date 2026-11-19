@@ -51,7 +51,7 @@ export function proximoPaso(e: EntradaProximoPaso): ProximoPaso | null {
         const d = e.documentoFaltante
         return {
           tono: 'hacer',
-          titulo: `Paso ${d.paso}: subí ${d.titulo}${d.persona ? ` de ${d.persona}` : ''}`,
+          titulo: `Subí: ${d.titulo}${d.persona ? ` de ${d.persona}` : ''}`,
           detalle: `Sacale fotos o subí el archivo${mas(e.cantidadDocumentosFaltantes, 'documento(s)')}.`,
           boton: { texto: 'Ir al documento', href: d.href },
         }

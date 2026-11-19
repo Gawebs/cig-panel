@@ -10,7 +10,7 @@ describe('próximo paso', () => {
     expect(proximoPaso({ ...base, datoFaltante: dato, cantidadDatosFaltantes: 3, documentoFaltante: doc, cantidadDocumentosFaltantes: 1 })).toMatchObject({
       titulo: 'Cargá: Padrón del inmueble', detalle: 'Es un dato que Catastro pide (y 2 dato(s) más).', boton: { href: '#datos-catastro' },
     })
-    expect(proximoPaso({ ...base, documentoFaltante: doc, cantidadDocumentosFaltantes: 1 })).toMatchObject({ titulo: 'Paso 1: subí DNI de PEREZ Ana', boton: { href: '#req-dni' } })
+    expect(proximoPaso({ ...base, documentoFaltante: doc, cantidadDocumentosFaltantes: 1 })).toMatchObject({ titulo: 'Subí: DNI de PEREZ Ana', boton: { href: '#req-dni' } })
     expect(proximoPaso(base)).toMatchObject({ titulo: 'Está todo cargado: envialo a revisión', boton: { href: '#acciones' } })
   })
   it('a cada rol le muestra lo suyo o que está esperando', () => {

@@ -24,6 +24,45 @@ const texto = (max = 120) => z.string().trim().max(max)
 const opcional = (max = 120) =>
   z.string().trim().max(max).optional().transform((v) => (v === undefined ? undefined : v === '' ? null : v))
 
+/** Datos catastrales que vienen en el formulario (los que no vienen no se tocan; vacío = se borra). */
+function catastralesDelFormulario(formData: FormData, previos: Record<string, string> = {}): Record<string, string> {
+  const salida = { ...previos }
+  for (const k of CLAVES_CATASTRALES) {
+    if (!formData.has(k)) continue
+    const v = String(formData.get(k) ?? '').trim().slice(0, 60)
+    if (v) salida[k] = v
+    else delete salida[k]
+  }
+  return salida
+}
+
+/** Inmueble y posesión cargados en la pantalla de apertura (los que no vienen no se tocan). */
+function inmuebleDelFormulario(formData: FormData): { error?: string; campos: Record<string, string | boolean | null> } {
+  const campos: Record<string, string | boolean | null> = {}
+  const f = (k: string) => (formData.has(k) ? String(formData.get(k) ?? '').trim() : undefined)
+  const domicilio = f('domicilio_inmueble')
+  if (domicilio !== undefined) campos.domicilio_inmueble = domicilio.slice(0, 160) || null
+  const origen = f('origen_posesion')
+  if (origen !== undefined) {
+    if (origen && origen !== 'compra' && origen !== 'otro') return { error: 'Elegí cómo empezó la posesión.', campos }
+    campos.origen_posesion = origen || null
+    campos.origen_posesion_detalle = origen === 'otro' ? (f('origen_posesion_detalle') ?? '').slice(0, 200) || null : null
+  }
+  const fecha = f('fecha_inicio_posesion')
+  if (fecha !== undefined) {
+    if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'La fecha de inicio de la posesión no es válida.', campos }
+    campos.fecha_inicio_posesion = fecha || null
+  }
+  const localidad = f('locality_id')
+  if (localidad !== undefined) {
+    if (localidad && !/^[0-9a-f-]{36}$/i.test(localidad)) return { error: 'Elegí la localidad de la lista.', campos }
+    campos.locality_id = localidad || null
+  }
+  const ipvdu = f('tiene_documentacion_ipvdu')
+  if (ipvdu !== undefined) campos.tiene_documentacion_ipvdu = ipvdu === 'true' ? true : ipvdu === 'false' ? false : null
+  return { campos }
+}
+
 const esquemaApertura = z.object({
   ley: z.enum(['ley_pierri', 'ley_5670', 'ley_8162']),
   apellido: texto().min(1, 'Falta el apellido del titular.'),
@@ -54,6 +93,8 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
   const datos = esquemaApertura.safeParse(Object.fromEntries(formData))
   if (!datos.success) return conValores(formData, datos.error.issues[0].message)
   const d = datos.data
+  const inmueble = inmuebleDelFormulario(formData)
+  if (inmueble.error) return conValores(formData, inmueble.error)
 
   // Catastro no deja corregir el padrón después de presentado: se confirma dos veces.
   if (d.padron && d.padron !== d.padron_confirmacion) {
@@ -84,6 +125,12 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
   // Teléfono, correo y ciudad no los recibe abrir_expediente: se guardan aparte en el titular.
   if (titular?.id && (d.telefono || d.ciudad || d.correo)) {
     await supabase.from('case_people').update({ telefono: d.telefono ?? null, ciudad: d.ciudad ?? null, correo: d.correo ?? null }).eq('id', titular.id)
+  }
+
+  // Datos catastrales pegados o escritos al abrir (circunscripción, sección, manzana, parcela, matrícula...).
+  const catastrales = catastralesDelFormulario(formData)
+  if (Object.keys(catastrales).length || Object.keys(inmueble.campos).length) {
+    await supabase.from('case_files').update({ ...inmueble.campos, ...(Object.keys(catastrales).length ? { datos_catastrales: catastrales } : {}) }).eq('id', id)
   }
 
   // La Milagrosa y Menem son de un solo barrio: se pone solo, con su localidad.
@@ -119,6 +166,50 @@ const esquemaPersona = z.object({
     }
   }),
 })
+
+/**
+ * Corrige lo cargado al abrir el expediente (titular y padrón), desde la misma pantalla de apertura.
+ * La ley no se cambia acá: define formularios y documentos ya generados.
+ */
+export async function corregirDatosIniciales(expedienteId: string, titularId: string, _prev: Resultado, formData: FormData): Promise<Resultado> {
+  await obtenerContexto()
+  const supabase = await createClient()
+  const { data: exp } = await supabase.from('case_files').select('padron, datos_catastrales').eq('id', expedienteId).maybeSingle()
+  if (!exp) return conValores(formData, 'No se encontró el expediente.')
+
+  const inmueble = inmuebleDelFormulario(formData)
+  if (inmueble.error) return conValores(formData, inmueble.error)
+  const padron = String(formData.get('padron') ?? '').replace(/\s/g, '')
+  if (padron && !/^\d{1,12}$/.test(padron)) return conValores(formData, 'El padrón va solo con números, sin puntos ni espacios.')
+  // Catastro no deja corregir el padrón después de presentado: si cambia, se confirma dos veces.
+  if (padron !== (exp.padron ?? '') && padron !== String(formData.get('padron_confirmacion') ?? '').replace(/\s/g, '')) {
+    return conValores(formData, 'Cambiaste el padrón: repetilo en el segundo casillero, los dos tienen que coincidir.')
+  }
+
+  // El titular se guarda con las mismas reglas que en Personas (DNI repetido, CUIL, correo, de dónde salió cada dato).
+  const persona = new FormData()
+  for (const k of ['apellido', 'nombre', 'dni', 'estado_civil', 'cuil', 'telefono', 'correo', 'domicilio', 'ciudad', 'sexo', 'fecha_nacimiento', 'origen_datos']) {
+    const v = formData.get(k)
+    if (typeof v === 'string') persona.set(k, v)
+  }
+  const cuil = String(persona.get('cuil') ?? '').trim()
+  if (/^\d{11}$/.test(cuil)) persona.set('cuil', `${cuil.slice(0, 2)}-${cuil.slice(2, 10)}-${cuil.slice(10)}`)
+  persona.set('id', titularId)
+  persona.set('rol', 'solicitante')
+  persona.set('solicitante_numero', '1')
+  const r = await guardarPersona(expedienteId, undefined, persona)
+  if (r?.error) return conValores(formData, r.error)
+
+  {
+    const datos_catastrales = catastralesDelFormulario(formData, (exp.datos_catastrales ?? {}) as Record<string, string>)
+    const { data, error } = await supabase.from('case_files').update({ padron: padron || null, datos_catastrales, ...inmueble.campos }).eq('id', expedienteId).select('id')
+    if (error) return conValores(formData, `No se pudo guardar el padrón: ${textoError(error)}`)
+    if (!data?.length) return conValores(formData, 'El expediente ya no se puede editar en este estado.')
+  }
+
+  revalidatePath(`/expedientes/${expedienteId}`)
+  return { ok: 'Datos corregidos.', id: `${expedienteId}|${titularId}` }
+}
 
 export async function guardarPersona(expedienteId: string, _prev: Resultado, formData: FormData): Promise<Resultado> {
   await obtenerContexto()

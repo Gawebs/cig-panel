@@ -5,11 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 import { PLANTILLAS, plantillaDe, valoresDesdeFicha, type FichaExpediente, type FichaPersona } from '@/lib/formularios/plantillas'
 import { observacionesEfectivas, type Observaciones } from '@/lib/relevamiento/observaciones'
 import { EditorFormulario } from './editor'
+import { PasosExpediente } from '@/components/pasos-expediente'
 import { datosFaltantes, type ExpedienteDatos, type PersonaDatos } from '@/lib/datos-obligatorios'
 
 const EDITABLES = ['en_armado', 'devuelto', 'listo_para_revisar', 'observado']
-// Orden en que se completan los formularios; al terminar uno, "Continuar" lleva al siguiente de la misma ley.
-const ORDEN = ['solicitud', 'ddjj', 'anexo_i', 'relevamiento_social']
+// Paso 2 del armado: los formularios que salen llenos con los datos iniciales, en este orden.
+// El relevamiento social no va acá: se completa después de la visita y se abre desde el paso 3.
+const ORDEN = ['solicitud', 'ddjj', 'anexo_i']
 
 export default async function PaginaFormulario({ params }: { params: Promise<{ id: string; clave: string }> }) {
   const { id, clave } = await params
@@ -69,17 +71,21 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
   // El Anexo I solo hace falta con más de 2 solicitantes: si no, Atrás y Continuar lo saltean.
   const solicitantes = (personas ?? []).filter((p) => p.rol === 'solicitante').length
   const aplica = (c: string) => Boolean(PLANTILLAS[`${exp.framework_id}/${c}`]) && (c !== 'anexo_i' || solicitantes > 2)
-  const siguienteClave = ORDEN.slice(ORDEN.indexOf(clave) + 1).find(aplica)
+  const enPaso2 = ORDEN.includes(clave)
+  const siguienteClave = enPaso2 ? ORDEN.slice(ORDEN.indexOf(clave) + 1).find(aplica) : undefined
   const siguiente = siguienteClave
     ? { href: `/expedientes/${id}/formularios/${siguienteClave}`, texto: `Continuar: ${PLANTILLAS[`${exp.framework_id}/${siguienteClave}`].titulo}` }
-    : { href: `/expedientes/${id}`, texto: 'Terminar y volver al expediente' }
-  const anteriorClave = ORDEN.slice(0, Math.max(0, ORDEN.indexOf(clave))).reverse().find(aplica)
+    : { href: `/expedientes/${id}`, texto: 'Seguir al paso 3: subir documentos' }
+  const anteriorClave = enPaso2 ? ORDEN.slice(0, Math.max(0, ORDEN.indexOf(clave))).reverse().find(aplica) : undefined
   const anterior = anteriorClave
     ? { href: `/expedientes/${id}/formularios/${anteriorClave}`, texto: `Atrás: ${PLANTILLAS[`${exp.framework_id}/${anteriorClave}`].titulo}` }
-    : { href: `/expedientes/${id}`, texto: 'Volver al expediente' }
+    : enPaso2
+      ? { href: `/expedientes/${id}/datos-iniciales`, texto: 'Atrás: paso 1 (datos iniciales)' }
+      : { href: `/expedientes/${id}`, texto: 'Volver al paso 3 (documentos)' }
 
   return (
     <div className="grid gap-4">
+      <PasosExpediente expedienteId={id} actual={enPaso2 ? 2 : 3} primerFormulario={ORDEN.find(aplica) ?? 'solicitud'} />
       <div>
         <Link href={`/expedientes/${id}`} className="text-sm text-azul hover:underline">← {exp.numero_interno}</Link>
         <h1 className="mt-1 text-3xl">{plantilla.titulo}</h1>

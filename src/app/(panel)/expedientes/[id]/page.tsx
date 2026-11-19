@@ -15,6 +15,7 @@ import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
 import { proximoPaso } from '@/lib/proximo-paso'
 import { Personas, type PersonaFila } from './personas'
 import { SeccionCatastro, type Observacion } from './catastro'
+import { PasosExpediente } from '@/components/pasos-expediente'
 
 // Requisito del checklist → formulario que se imprime para firmar
 const FORMULARIO_DE: Record<string, string> = {
@@ -116,6 +117,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
 
   return (
     <div className="grid gap-6">
+      {editable && <PasosExpediente expedienteId={id} actual={3} />}
       <div id="arriba" className="flex scroll-mt-16 flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <Link href="/expedientes" className="text-sm text-azul hover:underline">← Expedientes</Link>
@@ -132,7 +134,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
       <nav aria-label="Partes del expediente" className="sticky top-0 z-10 -mx-2 -my-3 flex gap-1 overflow-x-auto bg-fondo/95 px-2 py-2 backdrop-blur">
         {[
           ['#arriba', '↑ Arriba'],
-          ['#catastro', 'Lo que pide Catastro'],
+          ['#catastro', 'Documentos'],
           ['#personas', 'Personas'],
           ['#inmueble', 'Inmueble'],
           ['#datos-catastro', 'Datos de Catastro'],
@@ -194,8 +196,10 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
 
       {editable && faltanDatos.length > 0 && (
         <section className="rounded-xl border border-aviso bg-aviso-suave px-5 py-4">
-          <h2 className="text-lg text-aviso">Faltan {faltanDatos.length} dato(s) que Catastro necesita</h2>
-          <p className="text-sm text-tenue">Sin estos datos los formularios salen incompletos. Cargalos antes de imprimir.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg text-aviso">Faltan {faltanDatos.length} dato(s) para los formularios</h2>
+            <Link href={`/expedientes/${id}/datos-iniciales`} className="boton text-sm">Completar en el paso 1 →</Link>
+          </div>
           <ul className="mt-2 grid gap-1.5 text-sm">
             {faltanDatos.map((f) => (
               <li key={f.texto} className="flex flex-wrap items-baseline gap-x-2">
@@ -228,8 +232,8 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
           {/* Los 4 pasos de Catastro */}
           <section className="tarjeta overflow-hidden">
             <div className="degrade px-5 py-4 text-white">
-              <h2 className="text-xl">Lo que pide Catastro</h2>
-              <p className="text-sm opacity-90">Los mismos 4 pasos del portal, con lo que corresponde a esta ley y a este grupo familiar.</p>
+              <h2 className="text-xl">Paso 3: Subí los documentos</h2>
+              <p className="text-sm opacity-90">En cada uno tocá “Sacar foto” o “Elegir archivo”. Lo que tiene punto verde ya está.</p>
             </div>
             {checklist.avisos.length > 0 && (
               <ul className="grid gap-1 border-b border-linea bg-aviso-suave px-5 py-3 text-sm text-aviso">
@@ -242,7 +246,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="flex items-center gap-2 text-lg">
                       <PasoPunto estado={p.estado} />
-                      Paso {p.paso}: {p.titulo}
+                      Parte {p.paso} de Catastro: {p.titulo}
                     </h3>
                     <span className="text-sm tabular-nums text-tenue">{p.completos} de {p.total}</span>
                   </div>
@@ -263,9 +267,16 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                       <li key={i.id} id={`req-${i.id}`} className="flex scroll-mt-4 items-start gap-3 rounded-lg border border-linea px-3 py-2 target:border-azul target:ring-2 target:ring-azul">
                         <span className={`mt-1 inline-block size-2.5 shrink-0 rounded-full ${i.completo ? 'bg-ok' : 'bg-error'}`} aria-hidden />
                         <div className="min-w-0 flex-1">
-                          <span className="block">{i.titulo}</span>
-                          {i.personaNombre && <span className="block text-sm text-tenue">{i.personaNombre}</span>}
-                          {i.ayuda && <span className="block text-sm text-tenue">{i.ayuda}</span>}
+                          <span className="block font-semibold">
+                            {i.completo ? '' : FORMULARIO_DE[i.requisito] ? 'Imprimí, hacé firmar y subí: ' : i.requisito === 'coordenadas' ? 'Escribí: ' : 'Subí: '}
+                            {i.titulo}{i.personaNombre ? ` de ${i.personaNombre}` : ''}
+                          </span>
+                          {i.ayuda && (
+                            <details className="text-sm text-tenue">
+                              <summary className="cursor-pointer text-azul">¿Qué sirve?</summary>
+                              {i.ayuda}
+                            </details>
+                          )}
                           {i.aviso && <span className="block text-sm font-semibold text-aviso">{i.aviso}</span>}
                           {i.requisito === 'coordenadas' && (
                             i.deFicha
@@ -274,7 +285,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
                           )}
                           {FORMULARIO_DE[i.requisito] && ley.config.formularios.some((f) => f.clave === FORMULARIO_DE[i.requisito]) && (
                             <Link href={`/expedientes/${id}/formularios/${FORMULARIO_DE[i.requisito]}`} className="mt-1 inline-block text-sm font-semibold text-azul hover:underline">
-                              Ver, corregir e imprimir el formulario →
+                              Abrir el formulario para imprimir →
                             </Link>
                           )}
                           {!(i.requisito === 'coordenadas' && !(documentos ?? []).some((d) => d.requisito === 'coordenadas')) && <CargaDocumento
@@ -301,7 +312,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
               ))}
             </ol>
             <p className="border-t border-linea bg-fondo px-5 py-3 text-sm text-tenue">
-              Cada documento puede tener varias fotos o archivos: se unen solos en un PDF liviano. Los archivos quedan privados, solo para este municipio.
+              Podés subir varias fotos por documento: se unen solas en un PDF.
             </p>
           </section>
 
