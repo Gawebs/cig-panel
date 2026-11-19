@@ -116,7 +116,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div id="arriba" className="flex scroll-mt-16 flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <Link href="/expedientes" className="text-sm text-azul hover:underline">← Expedientes</Link>
           <h1 className="mt-1 text-3xl tabular-nums">{exp.numero_interno}</h1>
@@ -127,6 +127,22 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
           <span className="text-sm text-tenue">Abierto el {new Date(`${exp.fecha_apertura}T12:00:00`).toLocaleDateString('es-AR')}</span>
         </div>
       </div>
+
+      {/* Índice fijo: se puede ir y volver a cualquier parte de la ficha, no solo hacia adelante. */}
+      <nav aria-label="Partes del expediente" className="sticky top-0 z-10 -mx-2 -my-3 flex gap-1 overflow-x-auto bg-fondo/95 px-2 py-2 backdrop-blur">
+        {[
+          ['#arriba', '↑ Arriba'],
+          ['#catastro', 'Lo que pide Catastro'],
+          ['#personas', 'Personas'],
+          ['#inmueble', 'Inmueble'],
+          ['#datos-catastro', 'Datos de Catastro'],
+          ['#historial', 'Historial'],
+        ].map(([href, texto]) => (
+          <a key={href} href={href} className="shrink-0 rounded-full border border-linea bg-papel px-3 py-1.5 text-sm font-semibold text-azul hover:border-azul">
+            {texto}
+          </a>
+        ))}
+      </nav>
 
       {siguiente && (
         <section aria-label="Próximo paso" className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 px-5 py-4 ${TONO_PROXIMO[siguiente.tono]}`}>
@@ -289,7 +305,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             </p>
           </section>
 
-          <div id="catastro" className="-mb-6 scroll-mt-4" aria-hidden />
+          <div id="catastro" className="-mb-6 scroll-mt-16" aria-hidden />
           <SeccionCatastro
             expedienteId={id}
             municipioId={exp.municipality_id}
@@ -334,7 +350,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             ]}
           />
 
-          <div id="personas" className="scroll-mt-4">
+          <div id="personas" className="scroll-mt-16">
           <Personas
             expedienteId={id}
             municipioId={exp.municipality_id}
@@ -375,7 +391,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             )}
           </section>
 
-          <div id="inmueble" className="scroll-mt-4">
+          <div id="inmueble" className="scroll-mt-16">
           <FormInmueble
             expedienteId={id}
             editable={editable}
@@ -388,7 +404,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
           />
           </div>
 
-          <div id="datos-catastro" className="scroll-mt-4">
+          <div id="datos-catastro" className="scroll-mt-16">
           <FormDatosCatastro
             expedienteId={id}
             editable={editable}
@@ -398,7 +414,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
           />
           </div>
 
-          <section className="tarjeta p-5">
+          <section id="historial" className="tarjeta scroll-mt-16 p-5">
             <h2 className="text-lg">Historial</h2>
             <ol className="mt-3 grid gap-3 text-sm">
               {(eventos ?? []).map((e) => (
