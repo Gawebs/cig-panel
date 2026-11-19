@@ -12,7 +12,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
         <h1 className="text-2xl">Tu usuario no tiene un municipio asignado</h1>
         <p className="text-tenue">
           {ctx.esSoporte
-            ? 'Sos parte del equipo de soporte. La pantalla para configurar municipios llega en una próxima etapa.'
+            ? 'Sos parte del equipo de soporte. Los municipios se configuran desde el equipo técnico.'
             : 'Pedile a la dirección del área que te dé acceso.'}
         </p>
         <form action={salir}><button className="boton">Salir</button></form>

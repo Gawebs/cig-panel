@@ -21,8 +21,8 @@ Regla: se arregla **un punto por vez**, con OK de Gabriel, probando cada uno.
 
 ## Leves
 
-11. Con el autoguardado, si el CUIL está a medio escribir puede aparecer el error de formato antes de que se termine de escribir.
-12. Hay textos técnicos que un cliente no debería ver ("llega en la próxima etapa").
+11. ✅ *Resuelto 18-nov: el autoguardado espera a que DNI, CUIL y fechas estén completos; el CUIL sin guiones se completa solo.* Con el autoguardado, si el CUIL está a medio escribir puede aparecer el error de formato antes de que se termine de escribir.
+12. ✅ *Resuelto 18-nov: errores de la base traducidos (`src/lib/errores.ts`) y textos de "próxima etapa" cambiados.* Hay textos técnicos que un cliente no debería ver ("llega en la próxima etapa").
 
 ## Lo que se probó y anda bien
 

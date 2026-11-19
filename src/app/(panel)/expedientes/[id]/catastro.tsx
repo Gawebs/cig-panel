@@ -1,5 +1,6 @@
 'use client'
 
+import { textoError } from '@/lib/errores'
 import { useActionState, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { enlaceDocumento } from '@/actions/documentos'
@@ -88,7 +89,7 @@ function SubirFirmado(props: { expedienteId: string; municipioId: string; paso: 
     try {
       const ruta = `${props.municipioId}/${props.expedienteId}/firmado-P${props.paso}-${crypto.randomUUID().slice(0, 8)}.pdf`
       const { error } = await createClient().storage.from('expedientes').upload(ruta, new Blob([bytes], { type: 'application/pdf' }), { contentType: 'application/pdf' })
-      if (error) throw new Error(`No se pudo subir: ${error.message}`)
+      if (error) throw new Error(`No se pudo subir: ${textoError(error)}`)
       const r = await registrarFirmado(props.expedienteId, props.paso, ruta, bytes.byteLength)
       if (r.error) throw new Error(r.error)
       setMensaje({ tipo: 'ok', texto: r.ok! })

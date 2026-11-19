@@ -38,8 +38,8 @@ export default async function PaginaFormulario({ params }: { params: Promise<{ i
     return (
       <div className="grid gap-3">
         <Link href={`/expedientes/${id}`} className="text-sm text-azul hover:underline">← {exp.numero_interno}</Link>
-        <h1 className="text-2xl">Este formulario todavía no está cargado en el sistema</h1>
-        <p className="text-tenue">Por ahora están la solicitud y la declaración jurada de la Ley Pierri y el relevamiento social de las tres leyes. Los de La Milagrosa y Menem llegan en las próximas etapas.</p>
+        <h1 className="text-2xl">Este formulario no corresponde a esta ley</h1>
+        <p className="text-tenue">Volvé a la ficha y abrí los formularios desde la lista de lo que pide Catastro.</p>
       </div>
     )
   }

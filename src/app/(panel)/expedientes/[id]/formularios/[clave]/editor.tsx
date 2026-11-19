@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { aMedioEscribir } from '@/lib/formularios/a-medio-escribir'
 import { useRouter } from 'next/navigation'
 import { enlaceDocumento } from '@/actions/documentos'
 import { guardarFormulario, registrarImpresion } from '@/actions/formularios'
@@ -89,13 +90,20 @@ export function EditorFormulario(props: {
   const ultimaGuardada = useRef('{}')
   const [guardadoA, setGuardadoA] = useState<Date | null>(null)
 
-  const guardar = async () => {
-    if (!hayCambios) return true
+  // El autoguardado manda solo lo terminado de escribir; un CUIL o una fecha a medias esperan.
+  const listos = useMemo(() => {
+    const fuente = new Map(plantilla.campos.map((c) => [c.id, c.fuente]))
+    return Object.fromEntries(Object.entries(cambiados).filter(([k, v]) => !aMedioEscribir(fuente.get(k), v)))
+  }, [cambiados, plantilla.campos])
+
+  const guardar = async (soloListos = false) => {
+    const aMandar = soloListos ? listos : cambiados
+    if (!Object.keys(aMandar).length) return true
     if (guardando.current) return false
     guardando.current = true
     setOcupado(true)
-    const enviados = JSON.stringify(cambiados)
-    const r = await guardarFormulario(props.expedienteId, plantilla.clave, cambiados)
+    const enviados = JSON.stringify(aMandar)
+    const r = await guardarFormulario(props.expedienteId, plantilla.clave, aMandar)
     guardando.current = false
     if (!r.error) ultimaGuardada.current = enviados
     setOcupado(false)
@@ -112,7 +120,7 @@ export function EditorFormulario(props: {
   const firmaCambios = JSON.stringify(cambiados)
   useEffect(() => {
     if (!props.editable || !hayCambios || mensaje?.tipo === 'error') return
-    const t = setTimeout(() => { void guardar() }, 2000)
+    const t = setTimeout(() => { void guardar(true) }, 2000)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firmaCambios, props.editable])
@@ -189,6 +197,9 @@ export function EditorFormulario(props: {
   }
 
   const cambiar = (id: string, valor: string) => {
+    // CUIL escrito sin guiones: se los ponemos al completar los 11 números.
+    const f = plantilla.campos.find((c) => c.id === id)?.fuente
+    if (f && 'campo' in f && f.campo === 'cuil' && /^\d{11}$/.test(valor)) valor = `${valor.slice(0, 2)}-${valor.slice(2, 10)}-${valor.slice(10)}`
     setValores((v) => ({ ...v, [id]: valor }))
     if (mensaje?.tipo === 'error') setMensaje(null)
   }

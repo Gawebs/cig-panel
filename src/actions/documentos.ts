@@ -1,5 +1,6 @@
 'use server'
 
+import { textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { obtenerContexto } from '@/lib/sesion'
@@ -40,7 +41,7 @@ export async function registrarDocumento(expedienteId: string, doc: NuevoDocumen
   const { error } = await supabase.from('case_documents').insert({ ...datos.data, case_file_id: expedienteId })
   if (error) {
     await supabase.storage.from(BUCKET).remove([datos.data.storage_path])
-    return { error: `No se pudo registrar el documento: ${error.message}` }
+    return { error: `No se pudo registrar el documento: ${textoError(error)}` }
   }
   revalidatePath(`/expedientes/${expedienteId}`)
   return {}

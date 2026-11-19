@@ -1,5 +1,6 @@
 'use client'
 
+import { textoError } from '@/lib/errores'
 import { registrarDocumento } from '@/actions/documentos'
 import { unirEnPdf } from '@/lib/escaneo'
 import { createClient } from '@/lib/supabase/client'
@@ -22,7 +23,7 @@ export async function subirDocumento(p: {
   const { error } = await supabase.storage
     .from('expedientes')
     .upload(ruta, new Blob([bytes as BlobPart], { type: 'application/pdf' }), { contentType: 'application/pdf' })
-  if (error) throw new Error(`No se pudo subir: ${error.message}`)
+  if (error) throw new Error(`No se pudo subir: ${textoError(error)}`)
 
   const resultado = await registrarDocumento(p.expedienteId, {
     paso: p.paso,

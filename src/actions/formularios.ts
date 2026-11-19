@@ -1,5 +1,6 @@
 'use server'
 
+import { textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { obtenerContexto } from '@/lib/sesion'
 import { createClient } from '@/lib/supabase/server'
@@ -69,7 +70,7 @@ export async function guardarFormulario(
   let tocaRelevamiento = false
 
   for (const [id, valorCrudo] of Object.entries(cambios)) {
-    const valor = valorCrudo.trim()
+    let valor = valorCrudo.trim()
     const casilla = plantilla.casillas.find((c) => c.id === id)
     if (casilla) {
       const fc = casilla.fuente
@@ -153,6 +154,8 @@ export async function guardarFormulario(
       if (valor && !/^\d{7,8}$/.test(valor)) return { error: `${campo.etiqueta}: 7 u 8 números, sin puntos.` }
       persona.dni = valor || null
     } else if (f.campo === 'cuil') {
+      // Si lo escriben sin guiones, se los ponemos.
+      if (/^\d{11}$/.test(valor)) valor = `${valor.slice(0, 2)}-${valor.slice(2, 10)}-${valor.slice(10)}`
       if (valor && !/^\d{2}-\d{7,8}-\d$/.test(valor)) return { error: `${campo.etiqueta}: va con guiones, 20-12345678-3.` }
       persona.cuil = valor || null
     } else if (f.campo === 'estado_civil') {
@@ -169,7 +172,7 @@ export async function guardarFormulario(
     const existente = personaDeSlot(personas, slot)
     if (existente) {
       const { error } = await supabase.from('case_people').update(datos).eq('id', existente.id)
-      if (error) return { error: `No se pudo guardar: ${error.message}` }
+      if (error) return { error: `No se pudo guardar: ${textoError(error)}` }
     } else if (Object.values(datos).some((v) => v)) {
       if (!datos.apellido) return { error: 'Para agregar una persona desde el formulario, escribí al menos su apellido.' }
       const { error } = await supabase.from('case_people').insert({
@@ -178,7 +181,7 @@ export async function guardarFormulario(
         rol: slot.startsWith('s') ? 'solicitante' : 'conyuge',
         solicitante_numero: Number(slot.slice(1)),
       })
-      if (error) return { error: `No se pudo guardar: ${error.message}` }
+      if (error) return { error: `No se pudo guardar: ${textoError(error)}` }
     }
   }
 
@@ -189,14 +192,14 @@ export async function guardarFormulario(
     const existente = lista[indice - 1]
     if (existente) {
       const { error } = await supabase.from('case_people').update(datos).eq('id', existente.id)
-      if (error) return { error: `No se pudo guardar: ${error.message}` }
+      if (error) return { error: `No se pudo guardar: ${textoError(error)}` }
     } else if (Object.values(datos).some((v) => v !== null && v !== '')) {
       if (!datos.apellido) return { error: 'Para agregar a alguien del grupo familiar, escribí al menos su apellido.' }
       const { error } = await supabase.from('case_people').insert({
         ...datos, case_file_id: expedienteId, rol: 'grupo_familiar', solicitante_numero: solicitante,
         orden: Math.max(0, ...lista.map((x) => x.orden ?? 0)) + 1,
       })
-      if (error) return { error: `No se pudo guardar: ${error.message}` }
+      if (error) return { error: `No se pudo guardar: ${textoError(error)}` }
     }
   }
 
@@ -210,7 +213,7 @@ export async function guardarFormulario(
     .update({ ...cambiosExp, datos_catastrales: catastrales, valores_formularios: valoresForm })
     .eq('id', expedienteId)
     .select('id')
-  if (error) return { error: `No se pudo guardar: ${error.message}` }
+  if (error) return { error: `No se pudo guardar: ${textoError(error)}` }
   if (!actualizado?.length) return { error: 'El expediente ya no se puede editar en este estado.' }
 
   revalidatePath(`/expedientes/${expedienteId}`)

@@ -1,5 +1,6 @@
 'use server'
 
+import { textoError } from '@/lib/errores'
 import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -70,7 +71,7 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
       origen_datos: (() => { try { return JSON.parse(d.origen_datos || '{}') } catch { return {} } })(),
     },
   })
-  if (error) return conValores(formData, `No se pudo abrir el expediente: ${error.message}`)
+  if (error) return conValores(formData, `No se pudo abrir el expediente: ${textoError(error)}`)
 
   const { data: titular } = await supabase
     .from('case_people')
@@ -161,7 +162,7 @@ export async function guardarPersona(expedienteId: string, _prev: Resultado, for
     ? supabase.from('case_people').update(fila).eq('id', id).eq('case_file_id', expedienteId).select('id')
     : supabase.from('case_people').insert({ ...fila, case_file_id: expedienteId }).select('id')
   const { data, error } = await consulta
-  if (error) return conValores(formData, `No se pudo guardar: ${error.message}`)
+  if (error) return conValores(formData, `No se pudo guardar: ${textoError(error)}`)
   if (!data?.length) return conValores(formData, 'No se pudo guardar: el expediente ya no se puede editar o no tenés permiso.')
 
   revalidatePath(`/expedientes/${expedienteId}`)
@@ -180,7 +181,7 @@ export async function cambiarEstado(expedienteId: string, estado: string, _prev:
   const nota = String(formData.get('nota') ?? '').trim()
   const supabase = await createClient()
   const { error } = await supabase.rpc('cambiar_estado', { p_case: expedienteId, p_estado: estado, p_nota: nota || null })
-  if (error) return { error: error.message }
+  if (error) return { error: textoError(error) }
   revalidatePath(`/expedientes/${expedienteId}`)
   revalidatePath('/')
   return { ok: 'Listo.' }
@@ -218,7 +219,7 @@ export async function guardarInmueble(expedienteId: string, _prev: Resultado, fo
     }
   }
   const { data, error } = await supabase.from('case_files').update(cambios).eq('id', expedienteId).select('id')
-  if (error) return conValores(formData, `No se pudo guardar: ${error.message}`)
+  if (error) return conValores(formData, `No se pudo guardar: ${textoError(error)}`)
   if (!data?.length) return conValores(formData, 'El expediente ya no se puede editar en este estado.')
   revalidatePath(`/expedientes/${expedienteId}`)
   return { ok: 'Guardado.' }
@@ -254,7 +255,7 @@ export async function guardarDatosCatastro(expedienteId: string, _prev: Resultad
     .update({ padron: padron || null, padron_2: padron2 || null, datos_catastrales: catastrales })
     .eq('id', expedienteId)
     .select('id')
-  if (error) return conValores(formData, `No se pudo guardar: ${error.message}`)
+  if (error) return conValores(formData, `No se pudo guardar: ${textoError(error)}`)
   if (!data?.length) return conValores(formData, 'El expediente ya no se puede editar en este estado.')
 
   let aviso = ''

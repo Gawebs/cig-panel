@@ -1,5 +1,6 @@
 'use server'
 
+import { textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { obtenerContexto } from '@/lib/sesion'
@@ -20,10 +21,6 @@ function revalidar(id: string) {
 }
 
 /** Mensaje de la base sin el prefijo técnico. */
-function limpio(mensaje: string) {
-  return mensaje.replace(/^.*?ERROR:\s*/, '')
-}
-
 /**
  * Registra el PDF firmado por la Dirección para un paso. El archivo ya está subido;
  * acá se controla que de verdad tenga firma digital y reemplaza al firmado anterior de ese paso.
@@ -56,7 +53,7 @@ export async function registrarFirmado(expedienteId: string, paso: number, ruta:
   })
   if (error) {
     await supabase.storage.from('expedientes').remove([ruta])
-    return { error: `No se pudo registrar: ${error.message}` }
+    return { error: `No se pudo registrar: ${textoError(error)}` }
   }
   for (const a of anteriores ?? []) {
     await supabase.from('case_documents').delete().eq('id', a.id)
@@ -72,7 +69,7 @@ export async function presentarEnCatastro(expedienteId: string, _prev: Respuesta
   if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: datos.error?.issues[0].message ?? 'Datos inválidos.' }
   const supabase = await createClient()
   const { error } = await supabase.rpc('registrar_presentacion', { p_case: expedienteId, p_numero: datos.data.numero, p_fecha: datos.data.fecha })
-  if (error) return { error: limpio(error.message) }
+  if (error) return { error: textoError(error) }
   revalidar(expedienteId)
   return { ok: 'Quedó registrado como presentado en Catastro.' }
 }
@@ -83,7 +80,7 @@ export async function registrarObservacion(expedienteId: string, _prev: Respuest
   if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: datos.error?.issues[0].message ?? 'Datos inválidos.' }
   const supabase = await createClient()
   const { error } = await supabase.rpc('registrar_observacion', { p_case: expedienteId, p_recibida: datos.data.fecha, p_texto: datos.data.texto })
-  if (error) return { error: limpio(error.message) }
+  if (error) return { error: textoError(error) }
   revalidar(expedienteId)
   return { ok: 'Observación registrada. El plazo ya corre.' }
 }
@@ -94,7 +91,7 @@ export async function registrarProrroga(expedienteId: string, _prev: Respuesta |
   if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: 'Datos inválidos.' }
   const supabase = await createClient()
   const { error } = await supabase.rpc('registrar_prorroga', { p_case: expedienteId, p_hasta: datos.data.hasta || null, p_nota: datos.data.nota || null })
-  if (error) return { error: limpio(error.message) }
+  if (error) return { error: textoError(error) }
   revalidar(expedienteId)
   return { ok: 'Prórroga registrada.' }
 }
@@ -105,7 +102,7 @@ export async function registrarReingreso(expedienteId: string, _prev: Respuesta 
   if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: 'Datos inválidos.' }
   const supabase = await createClient()
   const { error } = await supabase.rpc('registrar_reingreso', { p_case: expedienteId, p_fecha: datos.data.fecha, p_nota: datos.data.nota || null })
-  if (error) return { error: limpio(error.message) }
+  if (error) return { error: textoError(error) }
   revalidar(expedienteId)
   return { ok: 'Reingreso registrado.' }
 }

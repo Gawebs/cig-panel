@@ -1,5 +1,6 @@
 'use server'
 
+import { textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -52,7 +53,7 @@ export async function crearConstancia(_prev: RespuestaConstancia, formData: Form
     .insert({ ...(await conBarrio(supabase, v.data)), municipality_id: ctx.municipio.id, numero: 'auto' })
     .select('id')
     .single()
-  if (error) return conValores(formData, `No se pudo guardar: ${error.message}`)
+  if (error) return conValores(formData, `No se pudo guardar: ${textoError(error)}`)
   revalidatePath('/constancias')
   redirect(`/constancias/${data.id}`)
 }
@@ -63,7 +64,7 @@ export async function guardarConstancia(id: string, _prev: RespuestaConstancia, 
   if (!v.success) return conValores(formData, v.error.issues[0].message)
   const supabase = await createClient()
   const { data, error } = await supabase.from('tenure_certificates').update(await conBarrio(supabase, v.data)).eq('id', id).select('id')
-  if (error) return conValores(formData, `No se pudo guardar: ${error.message}`)
+  if (error) return conValores(formData, `No se pudo guardar: ${textoError(error)}`)
   if (!data?.length) return conValores(formData, 'Tu usuario no puede cambiar esta constancia.')
   revalidatePath('/constancias')
   revalidatePath(`/constancias/${id}`)
@@ -80,7 +81,7 @@ export async function registrarArchivoConstancia(id: string, archivo: { ruta: st
   })
   if (error) {
     await supabase.storage.from('constancias').remove([archivo.ruta])
-    return { error: `No se pudo registrar: ${error.message}` }
+    return { error: `No se pudo registrar: ${textoError(error)}` }
   }
   revalidatePath(`/constancias/${id}`)
   return {}

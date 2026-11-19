@@ -1,5 +1,6 @@
 'use client'
 
+import { textoError } from '@/lib/errores'
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -43,7 +44,7 @@ async function traerExpedientes(): Promise<{ lista?: ExpedienteCampo[]; error?: 
     .in('estado', ESTADOS_EDITABLES)
     .order('created_at', { ascending: false })
     .limit(300)
-  if (error) return { error: error.message }
+  if (error) return { error: textoError(error) }
   const lista = (data ?? []).map((e) => {
     const personas = (e.case_people ?? []) as { id: string; rol: string; solicitante_numero: number; apellido: string; nombre: string }[]
     const titular = personas.find((p) => p.rol === 'solicitante' && p.solicitante_numero === 1)

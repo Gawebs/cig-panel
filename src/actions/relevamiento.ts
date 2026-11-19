@@ -1,5 +1,6 @@
 'use server'
 
+import { textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
@@ -78,7 +79,7 @@ export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promi
   const { error } = previo
     ? await supabase.from('field_surveys').update(fila).eq('id', d.id).select('id').single()
     : await supabase.from('field_surveys').insert(fila).select('id').single()
-  if (error) return { error: `No se pudo guardar el relevamiento: ${error.message}` }
+  if (error) return { error: `No se pudo guardar el relevamiento: ${textoError(error)}` }
 
   const aviso = await aplicarRelevamiento(supabase, d.id)
   revalidatePath(`/expedientes/${d.expedienteId}`)
@@ -143,19 +144,19 @@ async function aplicarRelevamiento(supabase: Supabase, relevamientoId: string): 
   }
   if (Object.keys(cambiosExp).length) {
     const { error } = await supabase.from('case_files').update(cambiosExp).eq('id', expId)
-    if (error) errores.push(error.message)
+    if (error) errores.push(textoError(error))
   }
   if (titular && Object.keys(plan.titular).length) {
     const { error } = await supabase.from('case_people').update(plan.titular).eq('id', titular.id)
-    if (error) errores.push(error.message)
+    if (error) errores.push(textoError(error))
   }
   for (const f of plan.familiaresNuevos) {
     const { error } = await supabase.from('case_people').insert({ ...f, case_file_id: expId, rol: 'grupo_familiar', solicitante_numero: 1 })
-    if (error) errores.push(error.message)
+    if (error) errores.push(textoError(error))
   }
   for (const f of plan.familiaresCambios) {
     const { error } = await supabase.from('case_people').update(f.cambios).eq('id', f.id).eq('case_file_id', expId)
-    if (error) errores.push(error.message)
+    if (error) errores.push(textoError(error))
   }
   await supabase.from('field_surveys').update({ respuestas: plan.respuestas }).eq('id', relevamientoId)
 
