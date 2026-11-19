@@ -17,7 +17,7 @@ Regla: se arregla **un punto por vez**, con OK de Gabriel, probando cada uno.
 7. ✅ *Resuelto 18-nov: las escritas cumplen el requisito y el PDF del paso 2 lleva la hoja sola.* **Las coordenadas se piden dos veces:** escritas en Inmueble y como documento a subir en el paso 2. El paso sigue en "Falta" aunque ya estén escritas.
 8. ✅ *Resuelto 18-nov: al abrir (y al entrar a la ficha si estaba vacío) se pone el barrio de la ley y su localidad; se puede cambiar en Inmueble.* **El barrio no se elige solo según la ley** (La Milagrosa → barrio La Milagrosa; Menem → Presidente Menem). Mientras no se elija, la localidad sale vacía en la declaración jurada.
 9. ✅ *Resuelto 18-nov: recuadro "Próximo paso" arriba de la ficha, con botón, según el estado y el rol (`src/lib/proximo-paso.ts`).* **No hay un "qué sigue".** La ficha muestra los 14 requisitos juntos y no marca cuál es el próximo paso. Conviene poner arriba un "Próximo paso" con un botón.
-10. **El autoguardado no cubre salir por el menú** en los 2 segundos siguientes a escribir, y en ese caso no avisa.
+10. ✅ *Resuelto 18-nov: al tocar cualquier link con cambios pendientes, primero guarda y después sale (si falla, pregunta); con el Atrás del navegador manda lo pendiente al cerrar.* **El autoguardado no cubre salir por el menú** en los 2 segundos siguientes a escribir, y en ese caso no avisa.
 
 ## Leves
 

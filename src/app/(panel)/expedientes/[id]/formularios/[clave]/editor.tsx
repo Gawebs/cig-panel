@@ -86,6 +86,7 @@ export function EditorFormulario(props: {
     cambiados[id] !== undefined ? 'bg-aviso-suave/90 ring-1 ring-aviso' : valores[id] ? 'bg-verde-suave/70' : 'bg-azul-suave/40 hover:bg-azul-suave/70'
 
   const guardando = useRef(false)
+  const ultimaGuardada = useRef('{}')
   const [guardadoA, setGuardadoA] = useState<Date | null>(null)
 
   const guardar = async () => {
@@ -93,8 +94,10 @@ export function EditorFormulario(props: {
     if (guardando.current) return false
     guardando.current = true
     setOcupado(true)
+    const enviados = JSON.stringify(cambiados)
     const r = await guardarFormulario(props.expedienteId, plantilla.clave, cambiados)
     guardando.current = false
+    if (!r.error) ultimaGuardada.current = enviados
     setOcupado(false)
     if (r.error) setMensaje({ tipo: 'error', texto: r.error })
     else {
@@ -121,6 +124,35 @@ export function EditorFormulario(props: {
     window.addEventListener('beforeunload', avisar)
     return () => window.removeEventListener('beforeunload', avisar)
   }, [hayCambios])
+
+  // Salir por el menú (o cualquier link de la pantalla) antes de los 2 segundos: primero se guarda, después se va.
+  const guardarRef = useRef(guardar)
+  const pendiente = useRef(cambiados)
+  useEffect(() => { guardarRef.current = guardar; pendiente.current = cambiados })
+  useEffect(() => {
+    if (!props.editable || !hayCambios) return
+    const alHacerClic = async (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!a || a.target === '_blank' || a.hasAttribute('download')) return
+      const url = new URL(a.href, location.href)
+      if (url.origin !== location.origin || (url.pathname === location.pathname && url.hash)) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (await guardarRef.current()) router.push(url.pathname + url.search + url.hash)
+      else if (window.confirm('No se pudieron guardar los últimos cambios. ¿Salir igual y perderlos?')) router.push(url.pathname + url.search + url.hash)
+    }
+    document.addEventListener('click', alHacerClic, true)
+    return () => document.removeEventListener('click', alHacerClic, true)
+  }, [hayCambios, props.editable, router])
+
+  // Último recurso (por ejemplo, el botón Atrás del navegador): al cerrar la pantalla se manda lo pendiente.
+  useEffect(() => () => {
+    const firma = JSON.stringify(pendiente.current)
+    if (!props.editable || guardando.current || firma === '{}' || firma === ultimaGuardada.current) return
+    void guardarFormulario(props.expedienteId, plantilla.clave, pendiente.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const imprimir = async () => {
     const faltan = props.faltanDatos ?? []
