@@ -51,7 +51,11 @@ export function LectorDni({ onLectura, onFotos }: {
     guardarFoto('dorso', archivo)
     setEstadoDorso('Leyendo el domicilio… (la primera vez tarda un poco más)')
     try {
-      const texto = await leerTexto(archivo, (p) => setEstadoDorso(`Leyendo el domicilio… ${p}%`))
+      const texto = await leerTexto(
+        archivo,
+        (p) => setEstadoDorso(`Leyendo el domicilio… ${p}%`),
+        (t) => extraerDomicilio(t) !== null,
+      )
       const domicilio = extraerDomicilio(texto)
       if (!domicilio) {
         setEstadoDorso('No se encontró el domicilio en la foto. Escribilo a mano.')

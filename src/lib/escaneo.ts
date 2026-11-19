@@ -100,20 +100,78 @@ export async function leerCodigoDni(foto: Blob): Promise<string | null> {
   return null
 }
 
-/** Lee el texto impreso de una foto (dorso del DNI). Corre en el navegador, con recursos propios. */
-export async function leerTexto(foto: Blob, alAvanzar?: (porcentaje: number) => void): Promise<string> {
+/** Foto girada, a un tamaño cómodo para el lector y en escala de grises con contraste estirado. */
+async function prepararParaLeer(img: ImageBitmap, giro: number): Promise<Blob> {
+  // El texto del dorso es chico: se lleva el lado mayor a ~2400 px (agranda fotos chicas, achica las enormes).
+  const escala = 2400 / Math.max(img.width, img.height)
+  const w = Math.round(img.width * escala)
+  const h = Math.round(img.height * escala)
+  const canvas = document.createElement('canvas')
+  canvas.width = giro % 180 === 0 ? w : h
+  canvas.height = giro % 180 === 0 ? h : w
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.translate(canvas.width / 2, canvas.height / 2)
+  ctx.rotate((giro * Math.PI) / 180)
+  ctx.drawImage(img, -w / 2, -h / 2, w, h)
+
+  const datos = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const p = datos.data
+  const grises = new Uint8Array(p.length / 4)
+  const histo = new Uint32Array(256)
+  for (let i = 0, j = 0; i < p.length; i += 4, j++) {
+    const g = Math.round(0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2])
+    grises[j] = g
+    histo[g]++
+  }
+  // Estira el contraste entre el 2 % más oscuro y el 2 % más claro (fotos con poca luz o lavadas).
+  const corte = grises.length * 0.02
+  let bajo = 0, alto = 255, acum = 0
+  for (let v = 0; v < 256; v++) { acum += histo[v]; if (acum > corte) { bajo = v; break } }
+  acum = 0
+  for (let v = 255; v >= 0; v--) { acum += histo[v]; if (acum > corte) { alto = v; break } }
+  const rango = Math.max(1, alto - bajo)
+  for (let i = 0, j = 0; i < p.length; i += 4, j++) {
+    const v = Math.max(0, Math.min(255, Math.round(((grises[j] - bajo) * 255) / rango)))
+    p[i] = p[i + 1] = p[i + 2] = v
+  }
+  ctx.putImageData(datos, 0, 0)
+  return new Promise((ok, mal) =>
+    canvas.toBlob((b) => (b ? ok(b) : mal(new Error('No se pudo procesar la imagen.'))), 'image/png'),
+  )
+}
+
+/**
+ * Lee el texto impreso de una foto (dorso del DNI). Corre en el navegador, con recursos propios.
+ * Si se pasa `sirve`, prueba la foto derecha y girada hasta que el texto sirva (muchas fotos salen de costado).
+ */
+export async function leerTexto(
+  foto: Blob,
+  alAvanzar?: (porcentaje: number) => void,
+  sirve?: (texto: string) => boolean,
+): Promise<string> {
   const { createWorker } = await import('tesseract.js')
+  const giros = sirve ? [0, 90, 270, 180] : [0]
+  let vuelta = 0
   const worker = await createWorker('spa', 1, {
     workerPath: '/vendor/tesseract/worker.min.js',
     corePath: '/vendor/tesseract/',
     langPath: '/vendor/tesseract/lang',
     logger: (m: { status: string; progress: number }) => {
-      if (m.status === 'recognizing text') alAvanzar?.(Math.round(m.progress * 100))
+      if (m.status === 'recognizing text') alAvanzar?.(Math.round(((vuelta + m.progress) / giros.length) * 100))
     },
   })
   try {
-    const { data } = await worker.recognize(foto)
-    return data.text
+    const img = await cargarImagen(foto)
+    const textos: string[] = []
+    for (const giro of giros) {
+      const { data } = await worker.recognize(await prepararParaLeer(img, giro))
+      if (!sirve || sirve(data.text)) return data.text
+      textos.push(data.text)
+      vuelta++
+    }
+    return textos.join('\n')
   } finally {
     await worker.terminate()
   }

@@ -47,6 +47,22 @@ describe('Domicilio del dorso', () => {
     const texto = 'DOMICILIO: B° LA MILAGROSA MZA 4 CASA 12 -\nBANDA DEL RIO SALI - CRUZ ALTA\nLUGAR DE NACIMIENTO: TUCUMAN'
     expect(extraerDomicilio(texto)).toBe('B° LA MILAGROSA MZA 4 CASA 12 - BANDA DEL RIO SALI - CRUZ ALTA')
   })
+  it('rótulo mal leído por el lector', () => {
+    expect(extraerDomicilio('D0MIClLlO: SAN MARTIN 450 - BANDA DEL RIO SALI\nLUGAR DE NACIMIENTO: TUCUMAN'))
+      .toBe('SAN MARTIN 450 - BANDA DEL RIO SALI')
+    expect(extraerDomicilio('DOMIGILIO SAN MARTIN 450 - BANDA DEL RIO SALI')).toBe('SAN MARTIN 450 - BANDA DEL RIO SALI')
+  })
+  it('rótulo solo en su línea y el valor abajo', () => {
+    expect(extraerDomicilio('DOMICILIO:\nSAN MARTIN 450 - BANDA DEL RIO SALI - CRUZ ALTA - TUCUMAN\nLUGAR DE NACIMIENTO: TUCUMAN'))
+      .toBe('SAN MARTIN 450 - BANDA DEL RIO SALI - CRUZ ALTA - TUCUMAN')
+  })
+  it('sin rótulo legible, por la forma del domicilio', () => {
+    expect(extraerDomicilio('ae ¥ 3 rr\nSAN MARTIN 450 - BANDA DEL RIO SALI - CRUZ ALTA - TUCUMAN\nLUGAR DE NACIMIENTO: TUCUMAN'))
+      .toBe('SAN MARTIN 450 - BANDA DEL RIO SALI - CRUZ ALTA - TUCUMAN')
+  })
+  it('no confunde otras palabras con el rótulo', () => {
+    expect(extraerDomicilio('MINISTERIO DEL INTERIOR\nREGISTRO NACIONAL DE LAS PERSONAS')).toBeNull()
+  })
   it('sin rótulo', () => {
     expect(extraerDomicilio('IDARG28123456<<<<')).toBeNull()
   })
