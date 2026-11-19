@@ -32,11 +32,32 @@ const FOTOS: { clave: ClaveFoto; titulo: string; guia: string }[] = [
 
 const PRECISION_BUENA = 25 // metros
 
+function seccionDeLaUrl(): Seccion {
+  if (typeof window === 'undefined') return 'ubicacion'
+  const s = new URLSearchParams(window.location.search).get('s')
+  return SECCIONES.some((x) => x.id === s) ? (s as Seccion) : 'ubicacion'
+}
+
 export function Relevamiento(props: { expediente: ExpedienteCampo; enLinea: boolean; alGuardar: () => void; alTerminar: () => void }) {
   const { expediente, alGuardar } = props
   const [r, setR] = useState<RelevamientoCampo | null>(null)
-  const [seccion, setSeccion] = useState<Seccion>('ubicacion')
+  const [seccion, setSeccionActual] = useState<Seccion>(seccionDeLaUrl)
   const cola = useRef(Promise.resolve())
+
+  // Cada parte queda en el historial: el botón "atrás" del celular vuelve a la parte anterior.
+  const setSeccion = useCallback((s: Seccion) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('s', s)
+    window.history.pushState(null, '', url)
+    setSeccionActual(s)
+    window.scrollTo(0, 0)
+  }, [])
+
+  useEffect(() => {
+    const alVolver = () => setSeccionActual(seccionDeLaUrl())
+    window.addEventListener('popstate', alVolver)
+    return () => window.removeEventListener('popstate', alVolver)
+  }, [])
 
   useEffect(() => {
     relevamientoDe(expediente).then(setR)
@@ -61,6 +82,8 @@ export function Relevamiento(props: { expediente: ExpedienteCampo; enLinea: bool
   )
 
   if (!r) return <p className="text-tenue">Abriendo…</p>
+
+  const anterior = SECCIONES[SECCIONES.findIndex((s) => s.id === seccion) - 1]
 
   const totalPreguntas = cuestionario(r.ley, r.familiares).length
   const respondidas = Object.values(r.respuestas).filter((x) => x.texto || x.audioId).length
@@ -116,6 +139,12 @@ export function Relevamiento(props: { expediente: ExpedienteCampo; enLinea: bool
           }}
           reabrir={() => actualizar((x) => ({ ...x, estado: 'en_curso' }))}
         />
+      )}
+
+      {anterior && (
+        <button className="boton justify-self-start" onClick={() => setSeccion(anterior.id)}>
+          ‹ Volver a {anterior.titulo.toLowerCase()}
+        </button>
       )}
     </div>
   )
