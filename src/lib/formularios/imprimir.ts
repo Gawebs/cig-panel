@@ -32,9 +32,20 @@ export async function generarPdf(
   const escribir = (n: number, texto: string, x0: number, x1: number, y: number) => {
     if (!texto) return
     const p = pagina(n)
+    const ancho = x1 - x0
     let tam = 10
-    while (tam > 6 && fuente.widthOfTextAtSize(texto, tam) > x1 - x0) tam -= 0.5
-    p.drawText(texto, { x: x0, y: p.getHeight() - (y - 4), size: tam, font: fuente, color: rgb(0, 0, 0) })
+    while (tam > 7 && fuente.widthOfTextAtSize(texto, tam) > ancho) tam -= 0.5
+    if (fuente.widthOfTextAtSize(texto, tam) <= ancho) {
+      p.drawText(texto, { x: x0, y: p.getHeight() - (y - 4), size: tam, font: fuente, color: rgb(0, 0, 0) })
+      return
+    }
+    // No entra en un renglón: se parte en dos renglones chicos dentro del mismo espacio, sin pisar el
+    // casillero de al lado (ej.: un domicilio largo no se mete en "Ciudad").
+    tam = 6.5
+    const [r1, r2] = partirEnDos(texto, (t) => fuente.widthOfTextAtSize(t, tam) <= ancho)
+    while (tam > 4.5 && fuente.widthOfTextAtSize(r2, tam) > ancho) tam -= 0.5
+    p.drawText(r1, { x: x0, y: p.getHeight() - (y - 9.5), size: tam, font: fuente, color: rgb(0, 0, 0) })
+    p.drawText(r2, { x: x0, y: p.getHeight() - (y - 2.5), size: tam, font: fuente, color: rgb(0, 0, 0) })
   }
 
   // Texto largo en varios renglones: se corta por palabras al ancho del renglón.
@@ -107,4 +118,12 @@ export async function generarPdf(
 
   for (let i = pdf.getPageCount() - 1; i >= 0; i--) if (!plantilla.paginas.includes(i)) pdf.removePage(i)
   return pdf.save()
+}
+
+/** Primer renglón: todas las palabras que entran; el resto va al segundo. */
+function partirEnDos(texto: string, entra: (t: string) => boolean): [string, string] {
+  const palabras = texto.split(/\s+/)
+  let i = 1
+  while (i < palabras.length && entra(palabras.slice(0, i + 1).join(' '))) i++
+  return [palabras.slice(0, i).join(' '), palabras.slice(i).join(' ')]
 }
