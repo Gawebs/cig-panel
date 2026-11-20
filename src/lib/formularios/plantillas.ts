@@ -611,6 +611,8 @@ export const ESTADO_CIVIL_TEXTO: Record<string, string> = {
 export function personaDeSlot(personas: FichaPersona[], slot: Slot): FichaPersona | undefined {
   const numero = Number(slot.slice(1))
   const rol = slot.startsWith('s') ? 'solicitante' : 'conyuge'
+  // El cónyuge de un viudo está cargado solo por sus actas: no va como cónyuge en los formularios.
+  if (rol === 'conyuge' && personas.some((p) => p.rol === 'solicitante' && p.solicitante_numero === numero && p.estado_civil === 'viudo')) return undefined
   return personas.find((p) => p.rol === rol && p.solicitante_numero === numero)
 }
 

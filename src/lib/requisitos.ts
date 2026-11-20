@@ -172,6 +172,12 @@ export function aniosDePrueba(regla: PruebasPosesionConfig, fechaApertura: Date)
   return [...anios].sort((a, b) => a - b)
 }
 
+const IDENTIDAD = ['dni', 'cuil']
+
+function esConyugeFallecido(conyuge: PersonaExpediente, personas: PersonaExpediente[]): boolean {
+  return personas.some((p) => p.rol === 'solicitante' && p.solicitante_numero === conyuge.solicitante_numero && p.estado_civil === 'viudo')
+}
+
 function cumpleCondicion(
   req: RequisitoConfig,
   persona: PersonaExpediente | null,
@@ -229,6 +235,9 @@ export function armarChecklist(params: {
     if (tienePareja && !parejaCargada) {
       avisos.push(`${nombrePersona(s)} figura ${s.estado_civil === 'casado' ? 'casado/a' : 'en unión convivencial'}: falta cargar al cónyuge o conviviente.`)
     }
+    if (s.estado_civil === 'viudo' && !parejaCargada) {
+      avisos.push(`${nombrePersona(s)} figura viudo/a: cargá al cónyuge fallecido como cónyuge. No lleva DNI ni CUIL, pero sí sus actas.`)
+    }
   }
   if (config.grupo_familiar && !personas.some((p) => p.rol === 'grupo_familiar')) {
     avisos.push('Esta ley pide el grupo familiar conviviente: cargalo aunque sea una sola persona.')
@@ -256,6 +265,8 @@ export function armarChecklist(params: {
     for (const persona of personas) {
       if (req.roles && !req.roles.includes(persona.rol)) continue
       if (!cumpleCondicion(req, persona, cantidadSolicitantes)) continue
+      // Cónyuge fallecido (el solicitante es viudo): no lleva DNI ni CUIL, sí las actas.
+      if (IDENTIDAD.includes(req.clave) && persona.rol === 'conyuge' && esConyugeFallecido(persona, personas)) continue
       const cargados = contar(documentos, req.clave, persona.id)
       items.push({
         id: `${req.clave}:${persona.id}`,
@@ -310,8 +321,14 @@ export function armarChecklist(params: {
     })
   }
 
+  // En el PDF van juntos el DNI y el CUIL de cada persona: primero los del titular, después los de la pareja.
+  const grupo = (i: ItemChecklist) => (IDENTIDAD.includes(i.requisito) && i.personaId ? `identidad:${i.personaId}` : i.id)
+  const primero = new Map<string, number>()
+  items.forEach((i, n) => { if (!primero.has(grupo(i))) primero.set(grupo(i), n) })
+  const ordenados = items.map((i, n) => ({ i, n })).sort((a, b) => primero.get(grupo(a.i))! - primero.get(grupo(b.i))! || a.n - b.n).map((x) => x.i)
+
   const pasos: EstadoPaso[] = ([1, 2, 3, 4] as Paso[]).map((paso) => {
-    const delPaso = items.filter((i) => i.paso === paso)
+    const delPaso = ordenados.filter((i) => i.paso === paso)
     const completos = delPaso.filter((i) => i.completo).length
     const algunoCargado = delPaso.some((i) => i.cantidadCargada > 0)
     return {
@@ -329,7 +346,7 @@ export function armarChecklist(params: {
     }
   })
 
-  const faltantes = items.filter((i) => !i.completo)
+  const faltantes = ordenados.filter((i) => !i.completo)
   return {
     pasos,
     faltantes,

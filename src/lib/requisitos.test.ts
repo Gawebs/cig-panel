@@ -50,6 +50,28 @@ describe('Ley Pierri, paso 1', () => {
     expect(claves(c, 1)).toEqual(expect.arrayContaining(['acta_matrimonio:p1', 'acta_defuncion:p1']))
   })
 
+  it('viudo con el cónyuge fallecido cargado: sin DNI ni CUIL de él, con sus actas', () => {
+    const c = armarChecklist({ config: configPierri, personas: [titular('viudo'), conyuge], documentos: [], fechaApertura: apertura })
+    const paso1 = claves(c, 1)
+    expect(paso1).not.toContain('dni:p2')
+    expect(paso1).not.toContain('cuil:p2')
+    expect(paso1).toEqual(expect.arrayContaining(['acta_nacimiento:p2', 'acta_nacimiento_padres:p2']))
+    expect(c.avisos.join(' ')).not.toMatch(/fallecido/)
+  })
+
+  it('viudo sin el cónyuge cargado: avisa que hay que cargarlo para sus actas', () => {
+    const c = armarChecklist({ config: configPierri, personas: [titular('viudo')], documentos: [], fechaApertura: apertura })
+    expect(c.avisos.join(' ')).toMatch(/cónyuge fallecido/)
+  })
+
+  it('orden del PDF 1: formularios, DNI y CUIL de cada uno, actas', () => {
+    const c = armarChecklist({ config: configPierri, personas: [titular('casado'), conyuge], documentos: [], fechaApertura: apertura })
+    expect(claves(c, 1)).toEqual([
+      'formulario_solicitud', 'ddjj', 'dni:p1', 'cuil:p1', 'dni:p2', 'cuil:p2', 'acta_matrimonio:p1',
+      'acta_nacimiento:p1', 'acta_nacimiento:p2', 'acta_nacimiento_padres:p1', 'acta_nacimiento_padres:p2',
+    ])
+  })
+
   it('más de 2 solicitantes: pide el Anexo I', () => {
     const extra = (n: number): PersonaExpediente => ({ ...titular('soltero'), id: `s${n}`, solicitante_numero: n })
     const c = armarChecklist({ config: configPierri, personas: [extra(1), extra(2), extra(3)], documentos: [], fechaApertura: apertura })
