@@ -35,7 +35,9 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
   const [aviso, setAviso] = useState('')
   const [llenados, setLlenados] = useState<Set<string>>(new Set())
   const [origenPosesion, setOrigenPosesion] = useState(v.origen_posesion ?? '')
-  const [domicilioInmueble, setDomicilioInmueble] = useState(v.domicilio_inmueble ?? '')
+  const [localidadElegida, setLocalidadElegida] = useState(v.locality_id ?? (localidades.length === 1 ? localidades[0].id : ''))
+  const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim()
+  const localidadDeCiudad = leido.ciudad ? localidades.find((l) => sinTildes(l.nombre) === sinTildes(leido.ciudad)) : undefined
   const marca = (clave: string) => (llenados.has(clave) ? ' ring-2 ring-ok' : '')
 
   const alLeerDni = (d: LecturaDni) => {
@@ -137,22 +139,25 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
 
           <section className="tarjeta grid gap-4 p-5">
             <h2 className="text-xl">Inmueble y posesión</h2>
+            {/* El inmueble es donde vive el titular: domicilio y localidad salen de los datos de arriba. */}
             <label className="grid gap-1.5">
-              <span className="text-sm font-semibold">Domicilio del inmueble</span>
-              <input name="domicilio_inmueble" value={domicilioInmueble} onChange={(e) => setDomicilioInmueble(e.target.value)} placeholder="Calle y número, barrio" className="campo" />
+              <span className="text-sm font-semibold">Domicilio del inmueble <span className="font-normal text-tenue">(el mismo del titular)</span></span>
+              <input name="domicilio_inmueble" value={leido.domicilio} readOnly tabIndex={-1} placeholder="Se completa con el domicilio del titular" className="campo bg-papel text-tenue" />
             </label>
-            {leido.domicilio && domicilioInmueble !== leido.domicilio && (
-              <button type="button" onClick={() => setDomicilioInmueble(leido.domicilio)} className="-mt-2 justify-self-start text-sm font-semibold text-azul hover:underline">
-                Es el mismo domicilio del DNI: {leido.domicilio}
-              </button>
-            )}
             {elegida.id === 'ley_pierri' && localidades.length > 0 && (
               <label className="grid gap-1.5 sm:max-w-sm">
                 <span className="text-sm font-semibold">Localidad del inmueble</span>
-                <select name="locality_id" defaultValue={v.locality_id ?? (localidades.length === 1 ? localidades[0].id : '')} className="campo">
-                  <option value="">Elegí la localidad</option>
-                  {localidades.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
-                </select>
+                {localidadDeCiudad ? (
+                  <>
+                    <input type="hidden" name="locality_id" value={localidadDeCiudad.id} />
+                    <input value={localidadDeCiudad.nombre} readOnly tabIndex={-1} className="campo bg-papel text-tenue" />
+                  </>
+                ) : (
+                  <select name="locality_id" value={localidadElegida} onChange={(e) => setLocalidadElegida(e.target.value)} className="campo">
+                    <option value="">Elegí la localidad</option>
+                    {localidades.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+                  </select>
+                )}
               </label>
             )}
             {elegida.id === 'ley_5670' ? (
