@@ -65,6 +65,7 @@ function FormPersona({ expedienteId, municipioId, persona, onListo }: { expedien
     poner('sexo', d.sexo, 'dni_frente')
     poner('fecha_nacimiento', d.fechaNacimiento, 'dni_frente')
     poner('domicilio', d.domicilio, 'dni_dorso')
+    poner('ciudad', d.ciudad, 'dni_dorso')
   }
 
   // Después de guardar a la persona, las fotos del DNI se cargan como su documento.

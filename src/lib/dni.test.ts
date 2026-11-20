@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calcularCuil, extraerDomicilio, interpretarCodigoDni } from './dni'
+import { calcularCuil, extraerDomicilio, interpretarCodigoDni, separarDomicilio } from './dni'
 
 describe('Código de barras del DNI', () => {
   it('formato tarjeta', () => {
@@ -65,5 +65,28 @@ describe('Domicilio del dorso', () => {
   })
   it('sin rótulo', () => {
     expect(extraerDomicilio('IDARG28123456<<<<')).toBeNull()
+  })
+})
+
+describe('separarDomicilio', () => {
+  it('con todos los guiones', () => {
+    expect(separarDomicilio('DOMINGO GARCIA 403 - B* LA MILAGROSA 1 - BANDA DEL RIO SALI - CRUZ ALTA - TUCUMAN'))
+      .toEqual({ calle: 'DOMINGO GARCIA 403', ciudad: 'BANDA DEL RÍO SALÍ' })
+  })
+  it('con guiones perdidos y basura al final (caso real)', () => {
+    expect(separarDomicilio('DOMINGO GARCIA 403 B* LA MILAGROSA 1 BANDA DEL RÍO SALÍ - CRUZ ALTA - TUCUMAN ENE'))
+      .toEqual({ calle: 'DOMINGO GARCIA 403', ciudad: 'BANDA DEL RÍO SALÍ' })
+  })
+  it('calle con número en el nombre', () => {
+    expect(separarDomicilio('25 DE MAYO 120 - LASTENIA - CRUZ ALTA - TUCUMAN')).toEqual({ calle: '25 DE MAYO 120', ciudad: 'LASTENIA' })
+  })
+  it('localidad que no está en la lista', () => {
+    expect(separarDomicilio('SAN MARTIN 55 - VILLA NUEVA - CHICLIGASTA - TUCUMAN')).toEqual({ calle: 'SAN MARTIN 55', ciudad: 'VILLA NUEVA' })
+  })
+  it('solo calle y número', () => {
+    expect(separarDomicilio('BELGRANO 1200')).toEqual({ calle: 'BELGRANO 1200', ciudad: null })
+  })
+  it('sin número: queda como vino', () => {
+    expect(separarDomicilio('SIN DATOS')).toEqual({ calle: 'SIN DATOS', ciudad: null })
   })
 })

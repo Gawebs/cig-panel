@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { calcularCuil, extraerDomicilio, interpretarCodigoDni, type DatosDni } from '@/lib/dni'
+import { calcularCuil, extraerDomicilio, interpretarCodigoDni, separarDomicilio, type DatosDni } from '@/lib/dni'
 import { leerCodigoDni, leerCodigoEnCanvas, leerTexto } from '@/lib/escaneo'
 import { CamaraGuiada, type Validacion } from '@/components/camara-guiada'
 
-export type LecturaDni = Partial<DatosDni> & { cuil?: string | null; domicilio?: string | null }
+export type LecturaDni = Partial<DatosDni> & { cuil?: string | null; domicilio?: string | null; ciudad?: string | null }
 
 const NO_LEIDO_FRENTE = 'No se pudo leer el código de barras. Acercá el DNI hasta que llene el recuadro, derecho y sin reflejo, y sacala de nuevo.'
 const NO_LEIDO_DORSO = 'No se pudo leer el domicilio. Acercá el DNI hasta que llene el recuadro, con luz y sin reflejo, y sacala de nuevo.'
@@ -64,8 +64,10 @@ export function LectorDni({ onLectura, onFotos }: {
     setCamara(null)
     if (!domicilio) return
     guardarFoto('dorso', comoArchivo(foto, 'dni-dorso.jpg'))
-    onLectura({ domicilio })
-    setEstadoDorso(`Domicilio leído: ${domicilio}. Revisalo: un error acá termina en una observación de Catastro.`)
+    // Catastro pide solo calle y número en "Domicilio"; la localidad va en "Ciudad".
+    const { calle, ciudad } = separarDomicilio(domicilio)
+    onLectura({ domicilio: calle, ciudad })
+    setEstadoDorso(`Domicilio leído: ${calle}${ciudad ? ` · Ciudad: ${ciudad}` : ''}. Revisalo: un error acá termina en una observación de Catastro.`)
   }
 
   return (

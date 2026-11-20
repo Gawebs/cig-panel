@@ -8,7 +8,7 @@ import type { Fuente } from './plantillas'
 const FORMATO: Record<string, RegExp> = {
   dni: /^\d{7,8}$/,
   cuil: /^(\d{2}-\d{7,8}-\d|\d{10,11})$/,
-  fecha_inicio_posesion: /^\d{1,2}\/\d{1,2}\/\d{4}$/,
+  fecha_inicio_posesion: /^(\d{4}|\d{1,2}\/\d{1,2}\/\d{4})$/,
   fecha_nacimiento: /^\d{1,2}\/\d{1,2}\/\d{4}$/,
 }
 

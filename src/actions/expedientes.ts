@@ -48,6 +48,14 @@ function inmuebleDelFormulario(formData: FormData): { error?: string; campos: Re
     campos.origen_posesion = origen || null
     campos.origen_posesion_detalle = origen === 'otro' ? (f('origen_posesion_detalle') ?? '').slice(0, 200) || null : null
   }
+  // En la apertura se pide solo el año: se guarda como 1 de enero y los formularios imprimen solo el año.
+  const anio = f('anio_inicio_posesion')
+  if (anio !== undefined) {
+    if (anio && (!/^\d{4}$/.test(anio) || Number(anio) < 1900 || Number(anio) > new Date().getFullYear())) {
+      return { error: 'El año de inicio de la posesión no es válido (ej.: 2005).', campos }
+    }
+    campos.fecha_inicio_posesion = anio ? `${anio}-01-01` : null
+  }
   const fecha = f('fecha_inicio_posesion')
   if (fecha !== undefined) {
     if (fecha && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'La fecha de inicio de la posesión no es válida.', campos }

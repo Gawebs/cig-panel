@@ -162,3 +162,33 @@ export function extraerDomicilio(textoDorso: string): string | null {
   )
   return candidata ? limpiar(candidata.replace(/\|/g, ' ')) : null
 }
+
+// Localidades que suelen aparecer en los DNI de la zona (Cruz Alta y Gran San Miguel de Tucumán).
+const LOCALIDADES_CONOCIDAS = [
+  'BANDA DEL RÍO SALÍ', 'LASTENIA', 'ALDERETES', 'SAN MIGUEL DE TUCUMÁN', 'YERBA BUENA', 'LAS TALITAS',
+  'TAFÍ VIEJO', 'COLOMBRES', 'LOS RALOS', 'RANCHILLOS', 'DELFÍN GALLO', 'EL BRACHO', 'LA FLORIDA',
+  'LOS PÉREZ', 'SAN ANDRÉS', 'EL CHAÑAR', 'LULES', 'FAMAILLÁ', 'CEVIL REDONDO', 'EL MANANTIAL',
+]
+
+const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+
+/**
+ * El dorso del DNI trae "CALLE 123 - BARRIO - LOCALIDAD - DEPARTAMENTO - PROVINCIA" (el lector a veces
+ * pierde algún guion). La solicitud de Catastro pide solo calle y número en "Domicilio" y la localidad en
+ * "Ciudad". Si no se reconoce la forma, devuelve el texto como vino y la ciudad vacía.
+ */
+export function separarDomicilio(domicilio: string, localidades: string[] = []): { calle: string; ciudad: string | null } {
+  const texto = domicilio.replace(/\s+/g, ' ').trim()
+  const partes = texto.split(/\s+-\s+/).map((p) => p.trim()).filter(Boolean)
+  // Calle y número: hasta el primer número que tenga algo escrito antes ("25 DE MAYO 120" → el 120).
+  const calle = partes[0].match(/^(.+?\s\d{1,5}(?:\s?[A-Z](?=\s|$))?)(?=\s|$)/)?.[1] ?? null
+  if (!calle) return { calle: texto, ciudad: null }
+
+  let ciudad: string | null = null
+  if (partes.length >= 4) ciudad = partes[partes.length - 3]
+  // El nombre de la localidad, buscado en lo que sigue a la calle (sin departamento ni provincia).
+  const resto = sinTildes([partes[0].slice(calle.length), ...partes.slice(1, Math.max(1, partes.length - 2))].join(' '))
+  const conocida = [...localidades, ...LOCALIDADES_CONOCIDAS].find((l) => resto.includes(sinTildes(l)))
+  if (conocida && (!ciudad || sinTildes(ciudad).includes(sinTildes(conocida)))) ciudad = conocida.toUpperCase()
+  return { calle: calle.trim(), ciudad: ciudad?.replace(/^(B[º°*O.]|BARRIO)\s.*$/i, '').trim() || null }
+}

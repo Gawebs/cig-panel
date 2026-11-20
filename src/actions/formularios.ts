@@ -13,6 +13,7 @@ const SOLO_LECTURA = new Set(['padron', 'localidad'])
 function aIso(fecha: string): string | null | 'invalida' {
   const t = fecha.trim()
   if (!t) return null
+  if (/^\d{4}$/.test(t)) return `${t}-01-01`
   const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (!m) return 'invalida'
   return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
@@ -140,7 +141,7 @@ export async function guardarFormulario(
       if ((CAMPOS_CATASTRALES as readonly string[]).includes(f.campo)) catastrales[f.campo] = valor
       else if (f.campo === 'fecha_inicio_posesion') {
         const iso = aIso(valor)
-        if (iso === 'invalida') return { error: 'La fecha de inicio de la posesión va como dd/mm/aaaa.' }
+        if (iso === 'invalida') return { error: 'La fecha de inicio de la posesión va como año (aaaa) o dd/mm/aaaa.' }
         cambiosExp.fecha_inicio_posesion = iso
       } else cambiosExp[f.campo] = valor || null
       continue

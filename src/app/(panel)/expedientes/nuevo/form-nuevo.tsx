@@ -7,6 +7,7 @@ import { abrirExpediente, corregirDatosIniciales } from '@/actions/expedientes'
 import { LectorDni, type LecturaDni } from '@/components/lector-dni'
 import { CamposCatastro } from '@/components/pegar-catastro'
 import { subirDocumento } from '@/lib/subida'
+import { separarDomicilio } from '@/lib/dni'
 import { ESTADOS_CIVILES } from '@/lib/textos'
 
 export type LeyOpcion = { id: string; nombre: string; nombreCorto: string; usaNomina: boolean; pruebas: string }
@@ -25,7 +26,11 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const fotosDni = useRef<{ frente?: File; dorso?: File }>({})
-  const [leido, setLeido] = useState({ cuil: v.cuil ?? '', sexo: v.sexo ?? '', fecha_nacimiento: v.fecha_nacimiento ?? '', domicilio: v.domicilio ?? '' })
+  // Un domicilio cargado entero del DNI (con barrio, localidad y provincia) se separa: Catastro pide solo calle y número.
+  const [leido, setLeido] = useState(() => {
+    const separado = v.domicilio ? separarDomicilio(v.domicilio) : { calle: '', ciudad: null }
+    return { cuil: v.cuil ?? '', sexo: v.sexo ?? '', fecha_nacimiento: v.fecha_nacimiento ?? '', domicilio: separado.calle, ciudad: v.ciudad || separado.ciudad || '' }
+  })
   const [origen, setOrigen] = useState<Record<string, string>>({})
   const [aviso, setAviso] = useState('')
   const [llenados, setLlenados] = useState<Set<string>>(new Set())
@@ -41,12 +46,13 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
       if (el && valor) el.value = valor
     }
     setLeido((l) => ({
-      cuil: d.cuil ?? l.cuil, sexo: d.sexo ?? l.sexo, fecha_nacimiento: d.fechaNacimiento ?? l.fecha_nacimiento, domicilio: d.domicilio ?? l.domicilio,
+      cuil: d.cuil ?? l.cuil, sexo: d.sexo ?? l.sexo, fecha_nacimiento: d.fechaNacimiento ?? l.fecha_nacimiento, domicilio: d.domicilio ?? l.domicilio, ciudad: d.ciudad ?? l.ciudad,
     }))
     setOrigen((o) => ({
       ...o,
       ...(d.dni ? { apellido: 'dni_frente', nombre: 'dni_frente', dni: 'dni_frente', sexo: 'dni_frente', fecha_nacimiento: 'dni_frente', cuil: 'cuil_calculado' } : {}),
       ...(d.domicilio ? { domicilio: 'dni_dorso' } : {}),
+      ...(d.ciudad ? { ciudad: 'dni_dorso' } : {}),
     }))
   }
 
@@ -109,8 +115,8 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
               <label className="grid gap-1.5"><span className="text-sm font-semibold">CUIL</span><input id="cuil" name="cuil" value={leido.cuil} onChange={(e) => setLeido((l) => ({ ...l, cuil: e.target.value }))} inputMode="numeric" placeholder="20-12345678-3" className="campo" /></label>
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Teléfono</span><input id="telefono" name="telefono" defaultValue={v.telefono} inputMode="tel" className="campo" /></label>
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Correo</span><input id="correo" name="correo" type="email" defaultValue={v.correo} placeholder="nombre@gmail.com" className="campo" /></label>
-              <label className="grid gap-1.5"><span className="text-sm font-semibold">Domicilio</span><input id="domicilio" name="domicilio" value={leido.domicilio} onChange={(e) => setLeido((l) => ({ ...l, domicilio: e.target.value }))} className="campo" /></label>
-              <label className="grid gap-1.5"><span className="text-sm font-semibold">Ciudad</span><input id="ciudad" name="ciudad" defaultValue={v.ciudad} className="campo" /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">Domicilio (calle y número)</span><input id="domicilio" name="domicilio" value={leido.domicilio} onChange={(e) => setLeido((l) => ({ ...l, domicilio: e.target.value }))} className="campo" /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">Ciudad</span><input id="ciudad" name="ciudad" value={leido.ciudad} onChange={(e) => setLeido((l) => ({ ...l, ciudad: e.target.value }))} className="campo" /></label>
             </div>
             <p className="-mt-1 text-sm text-tenue">Si escaneás el DNI, el CUIL y el domicilio se completan solos. Estos datos van a la solicitud de Catastro; el teléfono y el correo los pide el portal al presentar.</p>
           </section>
@@ -163,14 +169,14 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
                 <label className="grid gap-1.5">
                   <span className="text-sm font-semibold">Cómo empezó a ocupar el inmueble</span>
                   <select name="origen_posesion" value={origenPosesion} onChange={(e) => setOrigenPosesion(e.target.value)} className="campo">
-                    <option value="">Todavía no se sabe</option>
+                    <option value="" disabled hidden>Elegí una opción</option>
                     <option value="compra">Compra</option>
                     <option value="otro">Otro (herencia, cesión, ocupación…)</option>
                   </select>
                 </label>
                 <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold">Desde cuándo</span>
-                  <input name="fecha_inicio_posesion" type="date" defaultValue={v.fecha_inicio_posesion} className="campo" />
+                  <span className="text-sm font-semibold">Desde qué año</span>
+                  <input name="anio_inicio_posesion" defaultValue={v.anio_inicio_posesion ?? v.fecha_inicio_posesion?.slice(0, 4)} inputMode="numeric" maxLength={4} placeholder="Ej.: 2005" className="campo sm:max-w-40" />
                 </label>
                 {origenPosesion === 'otro' && (
                   <label className="grid gap-1.5 sm:col-span-2">

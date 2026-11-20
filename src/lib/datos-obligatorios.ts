@@ -67,7 +67,7 @@ export function datosFaltantes(exp: ExpedienteDatos, personas: PersonaDatos[]): 
   } else {
     if (vacio(exp.origen_posesion)) f.push({ texto: 'Origen de la posesión (compra u otro)', donde: 'ddjj' })
     else if (exp.origen_posesion === 'otro' && vacio(exp.origen_posesion_detalle)) f.push({ texto: 'Detalle del origen de la posesión', donde: 'ddjj' })
-    if (vacio(exp.fecha_inicio_posesion)) f.push({ texto: 'Fecha de inicio de la posesión', donde: 'ddjj' })
+    if (vacio(exp.fecha_inicio_posesion)) f.push({ texto: 'Año de inicio de la posesión', donde: 'ddjj' })
   }
   return f
 }

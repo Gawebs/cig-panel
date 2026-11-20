@@ -16,7 +16,7 @@ describe('datos obligatorios', () => {
   })
   it('avisa padrón, domicilio y posesión vacíos en Pierri', () => {
     const t = datosFaltantes(exp({ padron: null, domicilio_inmueble: '', origen_posesion: null, fecha_inicio_posesion: null }), [persona({})]).map((f) => f.texto)
-    expect(t).toEqual(['Padrón del inmueble', 'Domicilio del inmueble', 'Origen de la posesión (compra u otro)', 'Fecha de inicio de la posesión'])
+    expect(t).toEqual(['Padrón del inmueble', 'Domicilio del inmueble', 'Origen de la posesión (compra u otro)', 'Año de inicio de la posesión'])
   })
   it('origen "otro" pide el detalle', () => {
     expect(datosFaltantes(exp({ origen_posesion: 'otro' }), [persona({})]).map((f) => f.texto)).toEqual(['Detalle del origen de la posesión'])

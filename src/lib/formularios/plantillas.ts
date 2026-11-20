@@ -670,7 +670,8 @@ export function valoresDesdeFicha(p: Plantilla, exp: FichaExpediente, personas: 
     } else if ((CAMPOS_CATASTRALES as readonly string[]).includes(f.campo)) {
       v[c.id] = exp.datos_catastrales[f.campo] ?? ''
     } else if (f.campo === 'fecha_inicio_posesion') {
-      v[c.id] = fechaArgentina(exp.fecha_inicio_posesion)
+      // Cargada solo con el año (se guarda como 1 de enero): se imprime solo el año.
+      v[c.id] = exp.fecha_inicio_posesion?.endsWith('-01-01') ? exp.fecha_inicio_posesion.slice(0, 4) : fechaArgentina(exp.fecha_inicio_posesion)
     } else {
       v[c.id] = (exp[f.campo as keyof FichaExpediente] as string | null) ?? ''
     }
