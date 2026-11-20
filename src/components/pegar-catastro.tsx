@@ -4,27 +4,33 @@ import { useState, type RefObject } from 'react'
 import { CATASTRO_GIS } from '@/lib/catastro-enlaces'
 import { ETIQUETAS_LECTURA, interpretarTextoCatastro, type ClaveLectura } from '@/lib/catastro-lectura'
 
-/** Casilleros catastrales que se guardan en la ficha (además del padrón). */
-export const CAMPOS_CATASTRALES_FORM: [clave: string, etiqueta: string][] = [
+type Pantalla = 'parcelarios' | 'dominio'
+
+/** Casilleros que salen de la pantalla "Datos Parcelarios Generales" de Catastro. */
+export const CAMPOS_PARCELARIOS: [clave: string, etiqueta: string][] = [
   ['circ', 'Circunscripción'], ['secc', 'Sección'], ['mzna', 'Manzana'], ['parcela', 'Parcela'],
-  ['matricula', 'Matrícula'], ['orden', 'Orden'], ['libro', 'Libro'], ['folio', 'Folio'],
-  ['serie', 'Serie'], ['anio_dominio', 'Año'],
+  ['matricula', 'Matrícula catastral'], ['orden', 'Orden catastral'],
 ]
 
+/** Casilleros que salen de la pantalla "Antecedentes de Dominio" de Catastro. */
+export const CAMPOS_DOMINIO: [clave: string, etiqueta: string][] = [
+  ['libro', 'Libro'], ['folio', 'Folio'], ['serie', 'Serie'], ['anio_dominio', 'Año'],
+]
+
+const NOMBRE: Record<Pantalla, string> = { parcelarios: 'Datos Parcelarios Generales', dominio: 'Antecedentes de Dominio' }
+
 /**
- * Recuadro para pegar lo copiado de las pantallas del Acceso GIS (Ctrl+A, Ctrl+C) y llenar los casilleros
+ * Recuadro para pegar lo copiado de una pantalla del Acceso GIS (Ctrl+A, Ctrl+C) y llenar los casilleros
  * del formulario que lo contiene. No guarda nada: la persona revisa y guarda con el botón del formulario.
  */
-export function PegarCatastro({ formulario, alLlenar, botonGuardar }: {
+export function PegarCatastro({ formulario, pantalla, alLlenar }: {
   formulario: RefObject<HTMLFormElement | null>
+  pantalla: Pantalla
   /** Avisa qué casilleros se llenaron, para marcarlos. */
   alLlenar?: (claves: string[]) => void
-  /** Texto del botón con el que se guarda, para el mensaje. */
-  botonGuardar: string
 }) {
   const [pegado, setPegado] = useState('')
   const [lectura, setLectura] = useState<{ tipo: 'ok' | 'aviso' | 'error'; texto: string } | null>(null)
-  const [llenados, setLlenados] = useState<Set<string>>(new Set())
 
   const poner = (nombre: string, valor: string) => {
     const campo = formulario.current?.elements.namedItem(nombre)
@@ -35,57 +41,75 @@ export function PegarCatastro({ formulario, alLlenar, botonGuardar }: {
     setPegado('')
     const datos = interpretarTextoCatastro(texto)
     const claves = Object.keys(datos) as ClaveLectura[]
-    if (!claves.length) {
-      setLectura({ tipo: 'error', texto: 'No se encontraron datos de Catastro en lo que pegaste. Copiá la pantalla "Datos Parcelarios Generales" o "Antecedentes de Dominio" entera (Ctrl+A y Ctrl+C).' })
+    if (!claves.some((k) => k !== 'padron')) {
+      setLectura({ tipo: 'error', texto: `No se encontraron datos en lo que pegaste. Copiá la pantalla "${NOMBRE[pantalla]}" entera (Ctrl+A y Ctrl+C).` })
       return
     }
     const actual = String((formulario.current?.elements.namedItem('padron') as HTMLInputElement | null)?.value ?? '').trim()
-    let aviso = ''
-    if (datos.padron && actual && datos.padron !== actual) {
-      aviso = ` Ojo: lo que pegaste es del padrón ${datos.padron} y acá estaba el ${actual}. Revisá que sea el inmueble correcto.`
-    }
+    const aviso = datos.padron && actual && datos.padron !== actual
+      ? ` Ojo: es del padrón ${datos.padron} y acá está el ${actual}. Revisá que sea el inmueble correcto.`
+      : ''
     for (const k of claves) {
       poner(k, datos[k]!)
       // Lo pegado sale de Catastro tal cual: no hace falta escribir el padrón dos veces.
       if (k === 'padron') poner('padron_confirmacion', datos[k]!)
     }
-    const todos = new Set([...llenados, ...claves])
-    setLlenados(todos)
-    alLlenar?.([...todos])
-    const faltaParcelarios = !todos.has('circ') && !todos.has('parcela')
-    const faltaDominio = !todos.has('antecedente_dominio')
-    const otra = faltaDominio && !faltaParcelarios ? 'Ahora pegá "Antecedentes de Dominio".' : faltaParcelarios && !faltaDominio ? 'Ahora pegá "Datos Parcelarios Generales".' : ''
-    setLectura({
-      tipo: aviso ? 'aviso' : 'ok',
-      texto: `Se llenó: ${claves.map((k) => ETIQUETAS_LECTURA[k]).join(', ')}.${aviso} ${otra} Revisá y tocá "${botonGuardar}".`.replace(/\s+/g, ' ').trim(),
-    })
+    alLlenar?.(claves)
+    setLectura({ tipo: aviso ? 'aviso' : 'ok', texto: `Listo: ${claves.map((k) => ETIQUETAS_LECTURA[k]).join(', ')}.${aviso}` })
   }
 
   return (
     <div className="grid gap-2 rounded-lg border border-dashed border-azul bg-papel p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-sm font-semibold">Traer los datos copiando la pantalla de Catastro</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm">En Catastro, abrí <b>{NOMBRE[pantalla]}</b>, apretá <kbd>Ctrl</kbd>+<kbd>A</kbd> y <kbd>Ctrl</kbd>+<kbd>C</kbd>, y pegalo acá.</p>
         <a href={CATASTRO_GIS} target="_blank" rel="noopener noreferrer" className="boton min-h-9 text-sm">Abrir Catastro ↗</a>
       </div>
-      <ol className="list-decimal pl-5 text-sm text-tenue">
-        <li>Entrá a Catastro con tu usuario (se abre en otra pestaña) y buscá el padrón en Consultas.</li>
-        <li>En la pantalla <b>Datos Parcelarios Generales</b>, apretá <kbd>Ctrl</kbd>+<kbd>A</kbd> y después <kbd>Ctrl</kbd>+<kbd>C</kbd>.</li>
-        <li>Volvé acá, hacé clic en el recuadro de abajo y apretá <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
-        <li>Hacé lo mismo con la pantalla <b>Antecedentes de Dominio</b>.</li>
-      </ol>
       <textarea
         value={pegado}
         onChange={(e) => setPegado(e.target.value)}
         onPaste={(e) => { e.preventDefault(); alPegar(e.clipboardData.getData('text')) }}
         onBlur={() => { if (pegado.trim()) alPegar(pegado) }}
-        rows={2}
-        placeholder="Pegá acá (Ctrl+V)"
-        aria-label="Pegar la pantalla de Catastro"
+        rows={1}
+        placeholder={`Pegá acá ${NOMBRE[pantalla]} (Ctrl+V)`}
+        aria-label={`Pegar la pantalla ${NOMBRE[pantalla]}`}
         className="campo resize-none"
       />
       {lectura && (
         <p role="status" className={`text-sm ${lectura.tipo === 'error' ? 'text-error' : lectura.tipo === 'aviso' ? 'text-aviso' : 'text-ok'}`}>{lectura.texto}</p>
       )}
     </div>
+  )
+}
+
+/**
+ * Los datos de Catastro en dos partes, una por pantalla del Acceso GIS, cada una con su recuadro para pegar.
+ * Va dentro del formulario que guarda (los casilleros tienen el `name` del dato de la ficha).
+ */
+export function CamposCatastro({ formulario, valores, llenados, alLlenar, editable = true }: {
+  formulario: RefObject<HTMLFormElement | null>
+  valores: Record<string, string | undefined>
+  llenados: Set<string>
+  alLlenar: (claves: string[]) => void
+  editable?: boolean
+}) {
+  const marca = (clave: string) => (llenados.has(clave) ? ' ring-2 ring-ok' : '')
+  const casillero = ([k, et]: [string, string]) => (
+    <label key={k} className="grid min-w-0 gap-1"><span className="truncate text-sm font-semibold" title={et}>{et}</span><input name={k} defaultValue={valores[k] ?? ''} className={`campo${marca(k)}`} /></label>
+  )
+  return (
+    <>
+      <div className="grid gap-3">
+        <h3 className="text-base font-semibold">1. Datos Parcelarios Generales</h3>
+        {editable && <PegarCatastro formulario={formulario} pantalla="parcelarios" alLlenar={alLlenar} />}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{CAMPOS_PARCELARIOS.map(casillero)}</div>
+      </div>
+      <div className="grid gap-3 border-t border-linea pt-4">
+        <h3 className="text-base font-semibold">2. Antecedentes de Dominio</h3>
+        {editable && <PegarCatastro formulario={formulario} pantalla="dominio" alLlenar={alLlenar} />}
+        <label className="grid gap-1"><span className="text-sm font-semibold">Antecedente de dominio (matrícula)</span><input name="antecedente_dominio" defaultValue={valores.antecedente_dominio ?? ''} placeholder="Ej.: A-11846" className={`campo${marca('antecedente_dominio')}`} /></label>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{CAMPOS_DOMINIO.map(casillero)}</div>
+        <p className="-mt-1 text-xs text-tenue">Si en Catastro libro, folio y serie están vacíos, dejalos vacíos. El año no figura en esa pantalla: va solo si está en la escritura.</p>
+      </div>
+    </>
   )
 }

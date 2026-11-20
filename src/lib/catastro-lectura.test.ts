@@ -64,6 +64,10 @@ describe('Texto copiado de Catastro', () => {
     const r = interpretarTextoCatastro('MATRÍCULA\nA -11846\nLIBRO / FOLIO / SERIE\n/ /\nDOCUMENTO\n1')
     expect(r).toEqual({ antecedente_dominio: 'A-11846' })
   })
+  it('pantalla de dominio copiada como tabla', () => {
+    const t = 'Padrón de Referencia: 474542\nJUAN OSCAR AGUERO\nMATRÍCULA\tLIBRO / FOLIO / SERIE\tDOCUMENTO\tCUIT / CUIL\tPERSONA\nA -11846\t/ /\t_: 16132772\t20-16132772-8\tFISICA\nPORCENTAJE (%)\tTIPO DOMINIO\tACTUALIZACIÓN\n100 %\tPROPIETARIO LEGAL\t31/08/1999'
+    expect(interpretarTextoCatastro(t)).toEqual({ padron: '474542', antecedente_dominio: 'A-11846' })
+  })
   it('rótulo sin valor no toma el rótulo siguiente', () => {
     expect(interpretarTextoCatastro('SECCIÓN\nLÁMINA\n77')).toEqual({})
   })

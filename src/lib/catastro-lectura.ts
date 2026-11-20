@@ -47,13 +47,30 @@ function limpiar(clave: ClaveLectura, valor: string): string | null {
   return v && /[\p{L}\d]/u.test(v) ? v.slice(0, 60) : null
 }
 
+/**
+ * Algunos navegadores copian la grilla como tabla: una fila con los rótulos separados por tabulación y la
+ * siguiente con los valores. Se pasa a "rótulo / valor" en líneas sueltas, como el resto.
+ */
+function separarTablas(lineas: string[]): string[] {
+  const salida: string[] = []
+  for (let i = 0; i < lineas.length; i++) {
+    const celdas = lineas[i].split('\t').map((c) => c.trim())
+    const siguiente = lineas[i + 1]?.split('\t').map((c) => c.trim())
+    if (celdas.length > 1 && celdas.every((c) => !c || esRotulo(c)) && siguiente && siguiente.length === celdas.length) {
+      celdas.forEach((c, j) => { if (c) salida.push(c, siguiente[j] || '-') })
+      i++
+    } else salida.push(lineas[i])
+  }
+  return salida
+}
+
 /** Busca los datos de Catastro en el texto pegado. Devuelve solo lo que encontró. */
 export function interpretarTextoCatastro(texto: string): LecturaCatastro {
   const salida: LecturaCatastro = {}
   const padron = texto.match(/(?:N[uú]mero de Padr[oó]n|Padr[oó]n de Referencia)\s*:?\s*(\d{1,12})/i)
   if (padron) salida.padron = padron[1]
 
-  const lineas = texto.split(/\r?\n/).map((l) => l.replace(/\t/g, ' ').trim()).filter(Boolean)
+  const lineas = separarTablas(texto.split(/\r?\n/)).map((l) => l.replace(/\t/g, ' ').trim()).filter(Boolean)
   for (let i = 0; i < lineas.length - 1; i++) {
     const destino = ROTULOS[normal(lineas[i]).replace(/\s*\/\s*/g, ' / ')]
     if (!destino) continue
