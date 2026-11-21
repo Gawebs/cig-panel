@@ -96,9 +96,23 @@ export function CamaraGuiada<T>(props: Props<T>) {
       setVertical(ch > cw)
     }
     medir()
-    window.addEventListener('resize', medir)
-    return () => window.removeEventListener('resize', medir)
-  }, [forma])
+    // Al girar el celular cambia el tamaño de la zona de la cámara: se vuelve a medir el recuadro.
+    const observador = new ResizeObserver(medir)
+    if (caja.current) observador.observe(caja.current)
+    window.addEventListener('orientationchange', medir)
+    return () => {
+      observador.disconnect()
+      window.removeEventListener('orientationchange', medir)
+    }
+  }, [forma, sinCamara])
+
+  // La app instalada está fija en vertical: mientras la cámara está abierta se deja girar,
+  // así el recuadro acompaña al celular. Al cerrarla vuelve a vertical.
+  useEffect(() => {
+    const orientacion = screen.orientation as (ScreenOrientation & { lock?: (o: string) => Promise<void> }) | undefined
+    orientacion?.lock?.('any').catch(() => {})
+    return () => { orientacion?.lock?.('portrait').catch(() => {}) }
+  }, [])
 
   /** El recuadro, pasado a píxeles del video (que se muestra recortado para llenar la pantalla). */
   const recuadroEnVideo = useCallback((margen = 0): Rect | null => {
