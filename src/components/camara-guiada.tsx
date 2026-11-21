@@ -58,13 +58,19 @@ export function CamaraGuiada<T>(props: Props<T>) {
   const vw = zona ? (deCostado ? zona.ch : zona.cw) : 0
   const vh = zona ? (deCostado ? zona.cw : zona.ch) : 0
   const vertical = vh > vw
+  const lleno = forma === 'horizontal' && deCostado
   const guia = useMemo<Rect | null>(() => {
     if (!zona) return null
+    // Vivienda con el celular de costado: el recuadro ocupa casi toda la pantalla (es lo que se guarda).
+    if (lleno) {
+      const m = Math.round(Math.min(vw, vh) * 0.04)
+      return { x: m, y: m, w: vw - 2 * m, h: vh - 2 * m }
+    }
     const p = PROPORCION[forma]
     const w = Math.min(vw * (forma === 'dni' ? 0.9 : 0.94), vh * 0.72 * p)
     const h = w / p
     return { x: (vw - w) / 2, y: (vh - h) / 2, w, h }
-  }, [zona, forma, vw, vh])
+  }, [zona, forma, vw, vh, lleno])
   /** El recuadro en coordenadas de la pantalla (girado si el celular está de costado). */
   const guiaPantalla = useMemo<Rect | null>(() => {
     if (!guia || !zona) return null
@@ -303,12 +309,12 @@ export function CamaraGuiada<T>(props: Props<T>) {
                   className={`pointer-events-none absolute rounded-xl border-4 transition-colors ${listo ? 'border-green-400' : 'border-white/90'}`}
                   style={{ left: guia.x, top: guia.y, width: guia.w, height: guia.h, boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)' }}
                 />
-                <p className="absolute inset-x-4 text-center text-sm font-semibold drop-shadow" style={{ top: Math.max(8, guia.y - 52) }}>
+                <p className="absolute inset-x-4 text-center text-sm font-semibold drop-shadow" style={{ top: lleno ? guia.y + 12 : Math.max(8, guia.y - 52) }}>
                   {props.guia}
                 </p>
                 <p
                   className={`absolute inset-x-4 mx-auto w-fit max-w-full rounded-full px-3 py-1.5 text-center text-sm font-semibold ${estado === 'validando' || aviso ? 'bg-white text-black' : listo ? 'bg-green-500 text-white' : 'bg-black/70'}`}
-                  style={{ top: guia.y + guia.h + 12 }}
+                  style={lleno ? { bottom: vh - guia.y - guia.h + 12 } : { top: guia.y + guia.h + 12 }}
                   aria-live="polite"
                 >
                   {estado === 'validando' ? aviso : aviso || (vertical && forma === 'horizontal' ? 'Girá el celular para sacarla en horizontal.' : consejo?.texto ?? 'Apuntá la cámara…')}
