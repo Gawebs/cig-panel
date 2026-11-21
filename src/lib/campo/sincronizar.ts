@@ -9,6 +9,7 @@ import {
   borrarArchivo, estaPendiente, leerArchivo, listarRelevamientos, marcarSincronizado,
   type ClaveFoto, type RelevamientoCampo,
 } from './almacen'
+import { observacionesDeCroquis } from './croquis-plantilla'
 
 export const ORDEN_FOTOS: ClaveFoto[] = ['frente', 'contrafrente', 'interior1', 'interior2']
 
@@ -110,7 +111,7 @@ export async function sincronizarRelevamiento(r: RelevamientoCampo, numero: stri
     ]),
   )
   const res = await guardarRelevamiento({
-    id: r.id, expedienteId: r.expedienteId, estado: r.estado, gps: r.gps, respuestas, observaciones: r.observaciones,
+    id: r.id, expedienteId: r.expedienteId, estado: r.estado, gps: r.gps, respuestas, observaciones: { ...r.observaciones, ...observacionesDeCroquis(r.croquisDatos) },
   })
   if (res.error) return { ok: false, mensaje: res.error }
 

@@ -1,5 +1,7 @@
 'use client'
 
+import type { DatosCroquis, Trazo } from './croquis-plantilla'
+
 /**
  * Lo que el relevador hace en la visita queda guardado en el celular (IndexedDB) antes que nada.
  * Así no se pierde si no hay señal, si se cierra la aplicación o si se apaga el teléfono.
@@ -46,6 +48,9 @@ export interface RelevamientoCampo {
   observaciones: Record<string, string | string[]>
   fotos: Partial<Record<ClaveFoto, string>>
   croquisId: string | null
+  /** Croquis prediseñado: lo cargado en los campos y lo dibujado a mano encima. */
+  croquisDatos?: DatosCroquis
+  croquisTrazos?: Trazo[]
   /** Qué ya se subió: fotos y croquis como PDF, para no duplicarlos. */
   subidos: { fotos?: string; fotosRuta?: string; croquis?: string; croquisRuta?: string; coordenadas?: string; coordenadasRuta?: string }
   actualizado: number

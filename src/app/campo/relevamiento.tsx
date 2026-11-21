@@ -122,7 +122,7 @@ export function Relevamiento(props: { expediente: ExpedienteCampo; enLinea: bool
 
       {seccion === 'ubicacion' && <Ubicacion r={r} actualizar={actualizar} siguiente={() => setSeccion('fotos')} />}
       {seccion === 'fotos' && <Fotos r={r} actualizar={actualizar} siguiente={() => setSeccion('croquis')} />}
-      {seccion === 'croquis' && <Croquis r={r} actualizar={actualizar} siguiente={() => setSeccion('entrevista')} />}
+      {seccion === 'croquis' && <Croquis r={r} actualizar={actualizar} domicilio={expediente.domicilio} siguiente={() => setSeccion('entrevista')} />}
       {seccion === 'entrevista' && <Entrevista r={r} actualizar={actualizar} enLinea={props.enLinea} siguiente={() => setSeccion('observaciones')} />}
       {seccion === 'observaciones' && <Observaciones r={r} actualizar={actualizar} siguiente={() => setSeccion('terminar')} />}
       {seccion === 'terminar' && (
