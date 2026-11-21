@@ -31,6 +31,14 @@ export default async function DatosIniciales({ params }: { params: Promise<{ id:
     .maybeSingle()
   if (!titular) redirect(`/expedientes/${id}`)
 
+  const { data: conyuge } = await supabase
+    .from('case_people')
+    .select('id, apellido, nombre, dni, cuil, telefono, sexo, fecha_nacimiento')
+    .eq('case_file_id', id)
+    .eq('rol', 'conyuge')
+    .eq('solicitante_numero', 1)
+    .maybeSingle()
+
   const l = exp.legal_frameworks as unknown as { id: string; nombre: string; nombre_corto: string; usa_nomina_padrones: boolean; config: { pruebas_posesion: { descripcion: string } } }
   const leyes: LeyOpcion[] = [{ id: l.id, nombre: l.nombre, nombreCorto: l.nombre_corto, usaNomina: l.usa_nomina_padrones, pruebas: l.config.pruebas_posesion.descripcion }]
 
@@ -38,6 +46,9 @@ export default async function DatosIniciales({ params }: { params: Promise<{ id:
   const valores: Record<string, string> = {}
   for (const [k, v] of Object.entries({ ...titular, padron: exp.padron, domicilio_inmueble: exp.domicilio_inmueble, locality_id: exp.locality_id, origen_posesion: exp.origen_posesion, origen_posesion_detalle: exp.origen_posesion_detalle, fecha_inicio_posesion: exp.fecha_inicio_posesion, tiene_documentacion_ipvdu: exp.tiene_documentacion_ipvdu, ...((exp.datos_catastrales ?? {}) as Record<string, string>) })) {
     if (k !== 'id' && v !== null && v !== undefined) valores[k] = String(v)
+  }
+  for (const [k, v] of Object.entries(conyuge ?? {})) {
+    if (v !== null && v !== undefined) valores[`c_${k}`] = String(v)
   }
 
   return (

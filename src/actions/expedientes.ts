@@ -144,9 +144,13 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
   // La Milagrosa y Menem son de un solo barrio: se pone solo, con su localidad.
   await completarBarrioDeLaLey(supabase, { id, framework_id: d.ley, municipality_id: ctx.municipio.id, neighborhood_id: null, locality_id: null })
 
+  // Si el cónyuge no se pudo guardar, el expediente igual queda abierto (volver a enviar abriría otro):
+  // la ficha avisa que falta cargarlo.
+  const conyuge = await guardarConyuge(id, formData)
+
   revalidatePath('/')
   // La pantalla sube las fotos del DNI (si hay) y después navega a la ficha.
-  return { ok: 'Expediente abierto.', id: `${id}|${titular?.id ?? ''}|${ctx.municipio.id}` }
+  return { ok: 'Expediente abierto.', id: `${id}|${titular?.id ?? ''}|${ctx.municipio.id}|${conyuge.id ?? ''}` }
 }
 
 const esquemaPersona = z.object({
@@ -215,8 +219,33 @@ export async function corregirDatosIniciales(expedienteId: string, titularId: st
     if (!data?.length) return conValores(formData, 'El expediente ya no se puede editar en este estado.')
   }
 
+  const conyuge = await guardarConyuge(expedienteId, formData)
+  if (conyuge.error) return conValores(formData, `No se guardó el cónyuge: ${conyuge.error}`)
+
   revalidatePath(`/expedientes/${expedienteId}`)
-  return { ok: 'Datos corregidos.', id: `${expedienteId}|${titularId}` }
+  return { ok: 'Datos corregidos.', id: `${expedienteId}|${titularId}||${conyuge.id ?? ''}` }
+}
+
+/**
+ * Cónyuge o conviviente cargado en la pantalla de apertura (casilleros "c_"): se guarda como persona con rol
+ * cónyuge del solicitante 1, con las mismas reglas que en Personas. Sin apellido no se guarda nada.
+ */
+async function guardarConyuge(expedienteId: string, formData: FormData): Promise<{ id?: string; error?: string }> {
+  const estadoCivil = String(formData.get('estado_civil') ?? '')
+  const apellido = String(formData.get('c_apellido') ?? '').trim()
+  if (!apellido || (estadoCivil !== 'casado' && estadoCivil !== 'conviviente')) return {}
+  const persona = new FormData()
+  for (const k of ['id', 'apellido', 'nombre', 'dni', 'cuil', 'telefono', 'sexo', 'fecha_nacimiento', 'origen_datos']) {
+    const v = formData.get(`c_${k}`)
+    if (typeof v === 'string') persona.set(k, v)
+  }
+  const cuil = String(persona.get('cuil') ?? '').trim()
+  if (/^\d{11}$/.test(cuil)) persona.set('cuil', `${cuil.slice(0, 2)}-${cuil.slice(2, 10)}-${cuil.slice(10)}`)
+  persona.set('rol', 'conyuge')
+  persona.set('solicitante_numero', '1')
+  persona.set('estado_civil', estadoCivil)
+  const r = await guardarPersona(expedienteId, undefined, persona)
+  return r?.error ? { error: r.error } : { id: r?.id }
 }
 
 export async function guardarPersona(expedienteId: string, _prev: Resultado, formData: FormData): Promise<Resultado> {

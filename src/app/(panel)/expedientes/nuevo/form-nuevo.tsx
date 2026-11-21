@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { abrirExpediente, corregirDatosIniciales } from '@/actions/expedientes'
 import { LectorDni, type LecturaDni } from '@/components/lector-dni'
 import { CamposCatastro } from '@/components/pegar-catastro'
+import { BloqueConyuge } from './bloque-conyuge'
 import { subirDocumento } from '@/lib/subida'
 import { separarDomicilio } from '@/lib/dni'
 import { ESTADOS_CIVILES } from '@/lib/textos'
@@ -26,6 +27,9 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const fotosDni = useRef<{ frente?: File; dorso?: File }>({})
+  const fotosConyuge = useRef<{ frente?: File; dorso?: File }>({})
+  const [estadoCivil, setEstadoCivil] = useState(v.estado_civil ?? '')
+  const conPareja = estadoCivil === 'casado' || estadoCivil === 'conviviente'
   // Un domicilio cargado entero del DNI (con barrio, localidad y provincia) se separa: Catastro pide solo calle y número.
   const [leido, setLeido] = useState(() => {
     const separado = v.domicilio ? separarDomicilio(v.domicilio) : { calle: '', ciudad: null }
@@ -58,18 +62,23 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
     }))
   }
 
-  // Abierto el expediente: se suben las fotos del DNI del titular y se va a la ficha.
+  // Guardado: se suben las fotos del DNI del titular y del cónyuge (cada una a su persona) y se sigue al paso 2.
   useEffect(() => {
     if (!estado?.ok || !estado.id) return
-    const [expedienteId, titularId, municipioDeApertura] = estado.id.split('|')
+    const [expedienteId, titularId, municipioDeApertura, conyugeId] = estado.id.split('|')
     const municipioId = municipioDeApertura || edicion?.municipioId || ''
-    const fotos = [fotosDni.current.frente, fotosDni.current.dorso].filter(Boolean) as File[]
+    const deTitular = [fotosDni.current.frente, fotosDni.current.dorso].filter(Boolean) as File[]
+    const deConyuge = [fotosConyuge.current.frente, fotosConyuge.current.dorso].filter(Boolean) as File[]
+    const subidas = [
+      ...(deTitular.length && titularId ? [{ personaId: titularId, paginas: deTitular }] : []),
+      ...(deConyuge.length && conyugeId ? [{ personaId: conyugeId, paginas: deConyuge }] : []),
+    ]
     const ir = () => router.push(`/expedientes/${expedienteId}/formularios/solicitud`)
-    if (fotos.length === 0 || !titularId) return ir()
+    if (subidas.length === 0) return ir()
     setAviso('Cargando las fotos del DNI…')
-    subirDocumento({ expedienteId, municipioId, paso: 1, requisito: 'dni', personaId: titularId, paginas: fotos })
+    Promise.all(subidas.map((s) => subirDocumento({ expedienteId, municipioId, paso: 1, requisito: 'dni', ...s })))
       .then(ir)
-      .catch(() => { setAviso('El expediente se abrió, pero no se pudieron cargar las fotos del DNI. Cargalas desde la ficha.'); setTimeout(ir, 2500) })
+      .catch(() => { setAviso('Los datos se guardaron, pero no se pudieron cargar las fotos del DNI. Cargalas desde la ficha.'); setTimeout(ir, 2500) })
   }, [estado, router, edicion])
 
   return (
@@ -101,7 +110,10 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
           </p>
 
           <section className="tarjeta grid gap-4 p-5">
-            <h2 className="text-xl">Titular</h2>
+            <div>
+              <h2 className="text-xl">Titular</h2>
+              <p className="mt-1 text-sm text-tenue">Escaneá acá el DNI del titular. Si es casado o conviviente, el de la pareja se escanea más abajo, en su propio recuadro.</p>
+            </div>
             <LectorDni onLectura={alLeerDni} onFotos={(f) => { fotosDni.current = f }} />
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Apellido</span><input id="apellido" name="apellido" defaultValue={v.apellido} required className="campo" /></label>
@@ -109,7 +121,7 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
               <label className="grid gap-1.5"><span className="text-sm font-semibold">DNI</span><input id="dni" name="dni" defaultValue={v.dni} inputMode="numeric" placeholder="Sin puntos" className="campo" /></label>
               <label className="grid gap-1.5">
                 <span className="text-sm font-semibold">Estado civil</span>
-                <select id="estado_civil" name="estado_civil" className="campo" defaultValue={v.estado_civil ?? ""}>
+                <select id="estado_civil" name="estado_civil" className="campo" value={estadoCivil} onChange={(e) => setEstadoCivil(e.target.value)}>
                   <option value="">Todavía no se sabe</option>
                   {ESTADOS_CIVILES.map((e) => <option key={e.valor} value={e.valor}>{e.texto}</option>)}
                 </select>
@@ -122,6 +134,8 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
             </div>
             <p className="-mt-1 text-sm text-tenue">Si escaneás el DNI, el CUIL y el domicilio se completan solos. Estos datos van a la solicitud de Catastro; el teléfono y el correo los pide el portal al presentar.</p>
           </section>
+
+          {conPareja && <BloqueConyuge valores={v} alFotos={(f) => { fotosConyuge.current = f }} />}
 
           <section className="tarjeta grid gap-4 p-5">
             <h2 className="text-xl">Padrón y datos de Catastro</h2>
