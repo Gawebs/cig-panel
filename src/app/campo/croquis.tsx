@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { guardarArchivo, leerArchivo, type RelevamientoCampo } from '@/lib/campo/almacen'
 import {
-  CALLE, DATOS_VACIOS, LADO_LIENZO as LADO, MANZANA,
+  CALLE, CENTRO, DATOS_VACIOS, LADO_LIENZO as LADO, MANZANA, PASO_MANZANA, ZOOMS, aDibujo, aPantalla,
   faltantesCroquis, geometria, metros, textoMetros,
   type DatosCroquis, type Lado, type Trazo,
 } from '@/lib/campo/croquis-plantilla'
 import type { Actualizar } from './relevamiento'
 
-type Herramienta = 'lapiz' | 'linea' | 'rectangulo' | 'texto'
+type Herramienta = 'lapiz' | 'linea' | 'rectangulo' | 'texto' | 'referencia'
 
 const GRILLA = 50
 const TINTA = '#1b2a3a'
@@ -40,39 +40,47 @@ function texto(ctx: CanvasRenderingContext2D, t: string, x: number, y: number, o
   ctx.restore()
 }
 
-/** La manzana con las calles, el lote, la distancia a la esquina y la referencia. */
+/** La manzana con las calles, el lote, la distancia a la esquina y la referencia, con el zoom pedido. */
 function dibujarPlantilla(ctx: CanvasRenderingContext2D, d: DatosCroquis, gps: RelevamientoCampo['gps']) {
+  const z = d.zoom ?? 1
+  const P = (v: number) => aPantalla(v, z)
+  // Las letras se achican menos que el dibujo, para que se sigan leyendo.
+  const f = Math.max(0.6, z)
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, LADO, LADO)
 
-  // Manzanas vecinas: así se ven las calles que rodean a la del lote.
-  const tramos: [number, number][] = [[0, CALLE], [2 * CALLE, LADO - 2 * CALLE], [LADO - CALLE, LADO]]
+  // Manzanas: la del lote en el medio y las vecinas alrededor (más cuadras cuanto más zoom para afuera).
+  const mitad = (MANZANA.x1 - MANZANA.x0) / 2
   ctx.lineWidth = 3
-  for (const [x0, x1] of tramos) {
-    for (const [y0, y1] of tramos) {
-      if (x0 === MANZANA.x0 && y0 === MANZANA.y0) continue
+  for (let i = -4; i <= 4; i++) {
+    for (let k = -4; k <= 4; k++) {
+      if (!i && !k) continue
+      const x0 = P(CENTRO + i * PASO_MANZANA - mitad)
+      const y0 = P(CENTRO + k * PASO_MANZANA - mitad)
+      const lado = 2 * mitad * z
+      if (x0 > LADO || y0 > LADO || x0 + lado < 0 || y0 + lado < 0) continue
       ctx.fillStyle = '#eef2f5'
       ctx.strokeStyle = '#a9b8c5'
-      ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
-      ctx.strokeRect(x0, y0, x1 - x0, y1 - y0)
+      ctx.fillRect(x0, y0, lado, lado)
+      ctx.strokeRect(x0, y0, lado, lado)
     }
   }
   ctx.lineWidth = 5
   ctx.strokeStyle = TINTA
-  ctx.strokeRect(MANZANA.x0, MANZANA.y0, MANZANA.x1 - MANZANA.x0, MANZANA.y1 - MANZANA.y0)
+  ctx.strokeRect(P(MANZANA.x0), P(MANZANA.y0), (MANZANA.x1 - MANZANA.x0) * z, (MANZANA.y1 - MANZANA.y0) * z)
 
   // Nombres de las calles (en gris lo que falta cargar).
-  const medio = LADO / 2
+  const anchoCalle = Math.max(260, (MANZANA.x1 - MANZANA.x0) * z)
   const calle = (nombre: string, falta: string, x: number, y: number, giro = 0) =>
-    texto(ctx, nombre.trim() || falta, x, y, { tam: 40, ancho: MANZANA.x1 - MANZANA.x0, giro, color: nombre.trim() ? TINTA : TENUE, peso: nombre.trim() ? 700 : 500 })
-  calle(d.calleFrente, 'Calle del frente', medio, LADO - 2 * CALLE + 100)
-  calle(d.calleFondo, 'Calle de atrás', medio, CALLE + CALLE / 2)
-  calle(d.calleIzquierda, 'Calle izquierda', CALLE + CALLE / 2, medio, -Math.PI / 2)
-  calle(d.calleDerecha, 'Calle derecha', LADO - CALLE - CALLE / 2, medio, Math.PI / 2)
+    texto(ctx, nombre.trim() || falta, P(x), P(y), { tam: 40 * f, ancho: anchoCalle, giro, color: nombre.trim() ? TINTA : TENUE, peso: nombre.trim() ? 700 : 500 })
+  calle(d.calleFrente, 'Calle del frente', CENTRO, MANZANA.y1 + 100)
+  calle(d.calleFondo, 'Calle de atrás', CENTRO, MANZANA.y0 - CALLE / 2)
+  calle(d.calleIzquierda, 'Calle izquierda', MANZANA.x0 - CALLE / 2, CENTRO, -Math.PI / 2)
+  calle(d.calleDerecha, 'Calle derecha', MANZANA.x1 + CALLE / 2, CENTRO, Math.PI / 2)
 
   // El lote, sobre la calle del frente.
   const g = geometria(d)
-  const { lote } = g
+  const lote = { x0: P(g.lote.x0), y0: P(g.lote.y0), x1: P(g.lote.x1), y1: P(g.lote.y1) }
   const ancho = lote.x1 - lote.x0
   const largo = lote.y1 - lote.y0
   ctx.fillStyle = '#d6e6f5'
@@ -82,57 +90,77 @@ function dibujarPlantilla(ctx: CanvasRenderingContext2D, d: DatosCroquis, gps: R
   ctx.setLineDash(g.medidasCargadas ? [] : [16, 12])
   ctx.strokeRect(lote.x0, lote.y0, ancho, largo)
   ctx.setLineDash([])
-  texto(ctx, 'LOTE', (lote.x0 + lote.x1) / 2, (lote.y0 + lote.y1) / 2, { tam: 38, ancho: Math.max(ancho, largo) - 16, color: LOTE, peso: 800, giro: ancho < 110 ? -Math.PI / 2 : 0 })
+  texto(ctx, 'LOTE', (lote.x0 + lote.x1) / 2, (lote.y0 + lote.y1) / 2, { tam: 38 * f, ancho: Math.max(ancho, largo) - 16, color: LOTE, peso: 800, giro: ancho < 110 ? -Math.PI / 2 : 0 })
 
   const frente = metros(d.frente)
   const fondo = metros(d.fondo)
-  if (frente) texto(ctx, textoMetros(frente), (lote.x0 + lote.x1) / 2, lote.y0 - 26, { tam: 32, ancho: 220, color: LOTE, peso: 700 })
+  if (frente) texto(ctx, textoMetros(frente), (lote.x0 + lote.x1) / 2, lote.y0 - 26 * f, { tam: 32 * f, ancho: 220, color: LOTE, peso: 700 })
   if (fondo) {
-    const alLado = d.esquina === 'derecha' ? lote.x0 - 28 : lote.x1 + 28
-    texto(ctx, textoMetros(fondo), alLado, (lote.y0 + lote.y1) / 2, { tam: 32, ancho: largo, color: LOTE, peso: 700, giro: -Math.PI / 2 })
+    const alLado = d.esquina === 'derecha' ? lote.x0 - 28 * f : lote.x1 + 28 * f
+    texto(ctx, textoMetros(fondo), alLado, (lote.y0 + lote.y1) / 2, { tam: 32 * f, ancho: Math.max(largo, 120), color: LOTE, peso: 700, giro: -Math.PI / 2 })
   }
 
   // Distancia a la esquina más cercana: cota sobre la calle del frente.
   const distancia = metros(d.distancia)
   if (g.cota && distancia) {
-    const y = MANZANA.y1 + 26
+    const y = P(MANZANA.y1 + 26)
+    const c0 = P(g.cota.x0)
+    const c1 = P(g.cota.x1)
     ctx.strokeStyle = TINTA
     ctx.fillStyle = TINTA
     ctx.lineWidth = 4
     ctx.beginPath()
-    ctx.moveTo(g.cota.x0, y)
-    ctx.lineTo(g.cota.x1, y)
-    for (const x of [g.cota.x0, g.cota.x1]) {
-      ctx.moveTo(x, y - 14)
-      ctx.lineTo(x, y + 14)
+    ctx.moveTo(c0, y)
+    ctx.lineTo(c1, y)
+    for (const x of [c0, c1]) {
+      ctx.moveTo(x, y - 14 * f)
+      ctx.lineTo(x, y + 14 * f)
     }
     ctx.stroke()
-    for (const [x, dir] of [[g.cota.x0, 1], [g.cota.x1, -1]] as const) {
+    for (const [x, dir] of [[c0, 1], [c1, -1]] as const) {
       ctx.beginPath()
       ctx.moveTo(x, y)
-      ctx.lineTo(x + 18 * dir, y - 9)
-      ctx.lineTo(x + 18 * dir, y + 9)
+      ctx.lineTo(x + 18 * f * dir, y - 9 * f)
+      ctx.lineTo(x + 18 * f * dir, y + 9 * f)
       ctx.fill()
     }
-    const esquinaX = d.esquina === 'derecha' ? MANZANA.x1 : MANZANA.x0
     ctx.beginPath()
-    ctx.arc(esquinaX, MANZANA.y1, 10, 0, Math.PI * 2)
+    ctx.arc(P(d.esquina === 'derecha' ? MANZANA.x1 : MANZANA.x0), P(MANZANA.y1), 10 * f, 0, Math.PI * 2)
     ctx.fill()
-    const centro = Math.min(Math.max((g.cota.x0 + g.cota.x1) / 2, MANZANA.x0 + 150), MANZANA.x1 - 150)
-    texto(ctx, `${textoMetros(distancia)} a la esquina`, centro, y + 32, { tam: 30, ancho: 300, peso: 700 })
+    const media = 150 * f
+    const centro = Math.min(Math.max((c0 + c1) / 2, P(MANZANA.x0) + media), P(MANZANA.x1) - media)
+    // Sin zoom va abajo de la cota. Alejado la calle es angosta: solo los metros, arriba de la flecha.
+    if (z < 1) texto(ctx, textoMetros(distancia), (c0 + c1) / 2, y - 22 * f, { tam: 30 * f, ancho: 200, peso: 700 })
+    else texto(ctx, `${textoMetros(distancia)} a la esquina`, centro, y + 32, { tam: 30, ancho: 300, peso: 700 })
   }
 
-  // Referencia: del otro lado de la calle que se eligió.
+  // Referencia: donde se tocó el croquis, o del otro lado de la calle que se eligió.
   if (d.referencia.trim()) {
-    const lejos = CALLE / 2
-    const lugar: Record<Lado, [number, number, number]> = {
-      frente: [medio, LADO - lejos, 0],
-      fondo: [medio, lejos, 0],
-      izquierda: [lejos, medio, -Math.PI / 2],
-      derecha: [LADO - lejos, medio, Math.PI / 2],
+    const etiqueta = `★ ${d.referencia.trim()}`
+    const ancho = Math.max(320, (MANZANA.x1 - MANZANA.x0) * z)
+    if (d.referenciaLado === 'punto') {
+      if (d.referenciaPunto) {
+        const [x, y] = d.referenciaPunto.map(P)
+        ctx.fillStyle = REFERENCIA
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 4
+        ctx.beginPath()
+        ctx.arc(x, y, 14, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        texto(ctx, etiqueta, Math.min(Math.max(x, 170), LADO - 170), y - 40, { tam: 36 * f, ancho: 320, color: REFERENCIA, peso: 700 })
+      }
+    } else {
+      const lejos = CALLE / 2
+      const lugar: Record<Lado, [number, number, number]> = {
+        frente: [CENTRO, MANZANA.y1 + CALLE + lejos, 0],
+        fondo: [CENTRO, MANZANA.y0 - CALLE - lejos, 0],
+        izquierda: [MANZANA.x0 - CALLE - lejos, CENTRO, -Math.PI / 2],
+        derecha: [MANZANA.x1 + CALLE + lejos, CENTRO, Math.PI / 2],
+      }
+      const [x, y, giro] = lugar[d.referenciaLado]
+      texto(ctx, etiqueta, P(x), P(y), { tam: 36 * f, ancho, color: REFERENCIA, peso: 700, giro })
     }
-    const [x, y, giro] = lugar[d.referenciaLado]
-    texto(ctx, `★ ${d.referencia.trim()}`, x, y, { tam: 36, ancho: MANZANA.x1 - MANZANA.x0, color: REFERENCIA, peso: 700, giro })
   }
 
   if (gps) {
@@ -140,26 +168,31 @@ function dibujarPlantilla(ctx: CanvasRenderingContext2D, d: DatosCroquis, gps: R
   }
 }
 
-function dibujarTrazos(ctx: CanvasRenderingContext2D, trazos: Trazo[]) {
+/** Lo dibujado a mano, guardado sin zoom: se pasa a la pantalla con el zoom actual. */
+function dibujarTrazos(ctx: CanvasRenderingContext2D, trazos: Trazo[], z = 1) {
+  const P = (p: [number, number]): [number, number] => [aPantalla(p[0], z), aPantalla(p[1], z)]
   ctx.strokeStyle = TINTA
   ctx.fillStyle = TINTA
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
   for (const t of trazos) {
     if (t.tipo === 'texto') {
-      texto(ctx, t.texto, t.en[0], t.en[1], { tam: 48, ancho: LADO })
+      const [x, y] = P(t.en)
+      texto(ctx, t.texto, x, y, { tam: 48 * Math.max(0.6, z), ancho: LADO })
       continue
     }
     ctx.strokeStyle = TINTA
     ctx.lineWidth = t.grosor
     ctx.beginPath()
     if (t.tipo === 'lapiz') {
-      t.puntos.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+      t.puntos.map(P).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
     } else if (t.tipo === 'linea') {
-      ctx.moveTo(...t.desde)
-      ctx.lineTo(...t.hasta)
+      ctx.moveTo(...P(t.desde))
+      ctx.lineTo(...P(t.hasta))
     } else {
-      ctx.rect(t.desde[0], t.desde[1], t.hasta[0] - t.desde[0], t.hasta[1] - t.desde[1])
+      const [x0, y0] = P(t.desde)
+      const [x1, y1] = P(t.hasta)
+      ctx.rect(x0, y0, x1 - x0, y1 - y0)
     }
     ctx.stroke()
   }
@@ -217,10 +250,13 @@ export function Croquis({ r, actualizar, siguiente, domicilio }: { r: Relevamien
     })
   }, [r.croquisId, sobreImagen])
 
+  const zoom = sobreImagen ? 1 : datos.zoom ?? 1
+  const herramientaAntes = useRef<Herramienta>('linea')
+
   const pintar = (ctx: CanvasRenderingContext2D, extra: Trazo | null, conGrilla: boolean) => {
     if (sobreImagen) dibujarSobreImagen(ctx, fondo, conGrilla)
     else dibujarPlantilla(ctx, datos, r.gps)
-    dibujarTrazos(ctx, extra ? [...trazos, extra] : trazos)
+    dibujarTrazos(ctx, extra ? [...trazos, extra] : trazos, zoom)
   }
 
   useEffect(() => {
@@ -233,8 +269,10 @@ export function Croquis({ r, actualizar, siguiente, domicilio }: { r: Relevamien
     setGuardado(false)
   }
 
-  const cambiarDato = <K extends keyof DatosCroquis>(k: K, v: DatosCroquis[K]) => {
-    const nuevos = { ...datos, [k]: v }
+  const cambiarDato = <K extends keyof DatosCroquis>(k: K, v: DatosCroquis[K]) => cambiarDatos({ [k]: v })
+
+  const cambiarDatos = (cambios: Partial<DatosCroquis>) => {
+    const nuevos = { ...datos, ...cambios }
     setDatos(nuevos)
     cambiado()
     void actualizar((x) => ({ ...x, croquisDatos: nuevos }))
@@ -248,8 +286,8 @@ export function Croquis({ r, actualizar, siguiente, domicilio }: { r: Relevamien
 
   const punto = (e: React.PointerEvent): [number, number] => {
     const caja = lienzo.current!.getBoundingClientRect()
-    const x = ((e.clientX - caja.left) / caja.width) * LADO
-    const y = ((e.clientY - caja.top) / caja.height) * LADO
+    const x = aDibujo(((e.clientX - caja.left) / caja.width) * LADO, zoom)
+    const y = aDibujo(((e.clientY - caja.top) / caja.height) * LADO, zoom)
     // Líneas y rectángulos se acomodan a la grilla para que queden prolijos.
     if (herramienta === 'linea' || herramienta === 'rectangulo') return [Math.round(x / (GRILLA / 2)) * (GRILLA / 2), Math.round(y / (GRILLA / 2)) * (GRILLA / 2)]
     return [x, y]
@@ -263,6 +301,11 @@ export function Croquis({ r, actualizar, siguiente, domicilio }: { r: Relevamien
   const bajar = (e: React.PointerEvent) => {
     e.preventDefault()
     const p = punto(e)
+    if (herramienta === 'referencia') {
+      cambiarDatos({ referenciaLado: 'punto', referenciaPunto: [Math.round(p[0]), Math.round(p[1])] })
+      setHerramienta(herramientaAntes.current)
+      return
+    }
     if (herramienta === 'texto') {
       if (!textoNuevo.trim()) {
         setError('Escribí primero el texto (por ejemplo “Pasillo” o “Árbol”) y después tocá dónde va.')
@@ -341,6 +384,7 @@ export function Croquis({ r, actualizar, siguiente, domicilio }: { r: Relevamien
         </p>
       </div>
 
+      <div className="relative">
       <canvas
         ref={lienzo}
         width={LADO}
@@ -352,6 +396,30 @@ export function Croquis({ r, actualizar, siguiente, domicilio }: { r: Relevamien
         className="aspect-square w-full touch-none rounded-xl border border-linea bg-white"
         aria-label="Croquis del lote"
       />
+      {!sobreImagen && (
+        <div className="absolute right-2 top-2 grid gap-1.5">
+          <button
+            type="button"
+            className="grid size-11 place-items-center rounded-lg border border-linea bg-white text-2xl font-bold shadow disabled:opacity-40"
+            disabled={zoom === ZOOMS[0]}
+            onClick={() => cambiarDato('zoom', ZOOMS[Math.max(0, ZOOMS.indexOf(zoom) - 1)])}
+            aria-label="Acercar"
+          >+</button>
+          <button
+            type="button"
+            className="grid size-11 place-items-center rounded-lg border border-linea bg-white text-2xl font-bold shadow disabled:opacity-40"
+            disabled={zoom === ZOOMS[ZOOMS.length - 1]}
+            onClick={() => cambiarDato('zoom', ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(zoom) + 1)])}
+            aria-label="Alejar"
+          >−</button>
+        </div>
+      )}
+      {herramienta === 'referencia' && (
+        <p className="absolute inset-x-2 bottom-2 rounded-lg bg-black/75 px-3 py-2 text-center text-sm font-semibold text-white">
+          Tocá en el croquis dónde está la referencia. Si está lejos, alejá con “−”.
+        </p>
+      )}
+      </div>
 
       <details className="tarjeta p-4">
         <summary className="cursor-pointer text-sm font-semibold text-azul">Dibujar algo a mano encima</summary>
@@ -452,14 +520,26 @@ export function Croquis({ r, actualizar, siguiente, domicilio }: { r: Relevamien
                 <input value={datos.referencia} onChange={(e) => cambiarDato('referencia', e.target.value)} className="campo" />
               </Campo>
               <Campo etiqueta="¿Sobre qué calle está?">
-                <select value={datos.referenciaLado} onChange={(e) => cambiarDato('referenciaLado', e.target.value as Lado)} className="campo">
+                <select value={datos.referenciaLado} onChange={(e) => cambiarDato('referenciaLado', e.target.value as DatosCroquis['referenciaLado'])} className="campo">
                   <option value="frente">Enfrente, sobre la calle del frente</option>
                   <option value="fondo">Sobre la calle de atrás</option>
                   <option value="izquierda">Sobre la calle de la izquierda</option>
                   <option value="derecha">Sobre la calle de la derecha</option>
+                  <option value="punto">Más lejos: la marco en el croquis</option>
                 </select>
               </Campo>
             </div>
+            <button
+              type="button"
+              className="boton justify-self-start"
+              onClick={() => {
+                if (herramienta !== 'referencia') herramientaAntes.current = herramienta
+                setHerramienta('referencia')
+                lienzo.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }}
+            >
+              {datos.referenciaLado === 'punto' && datos.referenciaPunto ? 'Mover la referencia en el croquis' : 'Marcar la referencia tocando el croquis'}
+            </button>
           </div>
 
           <p className="text-sm text-tenue">

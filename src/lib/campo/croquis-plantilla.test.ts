@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DATOS_VACIOS, MANZANA, faltantesCroquis, geometria, metros, observacionesDeCroquis, textoMetros } from './croquis-plantilla'
+import { CENTRO, DATOS_VACIOS, MANZANA, PASO_MANZANA, aDibujo, aPantalla, faltantesCroquis, geometria, metros, observacionesDeCroquis, textoMetros } from './croquis-plantilla'
 
 describe('croquis prediseñado', () => {
   it('lee metros con coma o con unidad', () => {
@@ -47,5 +47,16 @@ describe('croquis prediseñado', () => {
     expect(obs.croquis_calle_frente).toBe('Belgrano')
     expect(obs.croquis_calle_fondo).toBeUndefined()
     expect(Object.keys(obs).every((k) => /^[a-z_]+$/.test(k) && k.length <= 40)).toBe(true)
+  })
+
+  it('zoom sobre el centro: ida y vuelta da lo mismo', () => {
+    expect(aPantalla(CENTRO, 0.3)).toBe(CENTRO)
+    expect(aDibujo(aPantalla(1500, 0.45), 0.45)).toBeCloseTo(1500)
+  })
+
+  it('referencia marcada a dos cuadras', () => {
+    const d = { ...DATOS_VACIOS, referencia: 'Plaza', referenciaLado: 'punto' as const, referenciaPunto: [CENTRO - 2 * PASO_MANZANA, CENTRO] as [number, number] }
+    expect(observacionesDeCroquis(d).croquis_referencia_cuadras).toBe('2 cuadras a la izquierda')
+    expect(faltantesCroquis({ ...d, referenciaPunto: null })).toContain('tocar en el croquis dónde está la referencia')
   })
 })

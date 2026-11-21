@@ -29,7 +29,12 @@ export interface DatosCroquis {
   esquina: 'izquierda' | 'derecha'
   /** Un lugar conocido cerca (escuela, almacén, plaza) y de qué lado de la manzana está. */
   referencia: string
-  referenciaLado: Lado
+  /** De qué lado de la manzana está, o 'punto' si se marcó tocando el croquis (puede estar a varias cuadras). */
+  referenciaLado: Lado | 'punto'
+  /** Dónde se tocó, en coordenadas del dibujo sin zoom (el centro de la manzana es 600, 600). */
+  referenciaPunto?: [number, number] | null
+  /** Zoom con que se ve y se guarda el croquis (1 = la manzana; menos = más cuadras alrededor). */
+  zoom?: number
 }
 
 export const DATOS_VACIOS: DatosCroquis = {
@@ -44,6 +49,15 @@ export const CALLE = 130
 /** La manzana del lote (cuadrada, en el medio). */
 export const MANZANA = { x0: 2 * CALLE, y0: 2 * CALLE, x1: LADO_LIENZO - 2 * CALLE, y1: LADO_LIENZO - 2 * CALLE }
 const LADO_MANZANA = MANZANA.x1 - MANZANA.x0
+/** De una manzana a la siguiente (manzana + calle). */
+export const PASO_MANZANA = LADO_MANZANA + CALLE
+export const CENTRO = LADO_LIENZO / 2
+/** Zooms posibles: 1 muestra la manzana; 0,3 muestra unas dos cuadras y media para cada lado. */
+export const ZOOMS = [1, 0.7, 0.45, 0.3]
+
+/** Pasa del dibujo sin zoom a la pantalla, y al revés (el zoom es siempre sobre el centro de la manzana). */
+export const aPantalla = (v: number, zoom: number) => CENTRO + (v - CENTRO) * zoom
+export const aDibujo = (v: number, zoom: number) => CENTRO + (v - CENTRO) / zoom
 /** Escala máxima: una cuadra de 100 m ocupa el lado de la manzana. */
 const ESCALA_MAXIMA = LADO_MANZANA / 100
 /** Lo que pueden ocupar el lote y la distancia sin salirse de la manzana. */
@@ -99,6 +113,7 @@ export function faltantesCroquis(d: DatosCroquis): string[] {
   if (!d.calleFrente.trim()) falta.push('la calle del frente')
   if (!d.calleIzquierda.trim() && !d.calleDerecha.trim()) falta.push('al menos una calle del costado')
   if (!d.referencia.trim()) falta.push('una referencia')
+  else if (d.referenciaLado === 'punto' && !d.referenciaPunto) falta.push('tocar en el croquis dónde está la referencia')
   return falta
 }
 
@@ -111,6 +126,15 @@ export function observacionesDeCroquis(d: DatosCroquis | undefined): Record<stri
     croquis_frente_m: d.frente, croquis_fondo_m: d.fondo,
     croquis_distancia_esquina_m: d.distancia, croquis_esquina: d.esquina,
     croquis_referencia: d.referencia, croquis_referencia_lado: d.referenciaLado,
+  }
+  if (d.referenciaLado === 'punto' && d.referenciaPunto) {
+    // Cuadras desde la manzana del lote hasta la referencia, para leerlo sin ver el dibujo.
+    const [x, y] = d.referenciaPunto.map((v) => Math.round((v - CENTRO) / PASO_MANZANA))
+    const partes = [
+      x ? `${Math.abs(x)} ${Math.abs(x) === 1 ? 'cuadra' : 'cuadras'} a la ${x < 0 ? 'izquierda' : 'derecha'}` : '',
+      y ? `${Math.abs(y)} ${Math.abs(y) === 1 ? 'cuadra' : 'cuadras'} hacia ${y < 0 ? 'atrás' : 'adelante'}` : '',
+    ].filter(Boolean)
+    salida.croquis_referencia_cuadras = partes.join(' y ') || 'en la misma manzana'
   }
   return Object.fromEntries(Object.entries(salida).map(([k, v]) => [k, v.trim().slice(0, 200)]).filter(([, v]) => v))
 }
