@@ -29,21 +29,20 @@ export function FormInmueble({ expedienteId, editable, barrios, localidades, val
       <h2 className="text-lg">Inmueble</h2>
       <form action={accion} className="mt-3 grid gap-3">
         <fieldset disabled={!editable} className="grid gap-3">
-          <label className="grid gap-1"><span className="text-sm font-semibold">Domicilio del inmueble</span><input id="domicilio_inmueble" name="domicilio_inmueble" defaultValue={v.domicilio_inmueble ?? ''} className="campo" /></label>
+          {/* Domicilio y localidad se cargan en el paso 1 (son los del titular): acá solo se muestran. */}
+          <input type="hidden" name="domicilio_inmueble" value={v.domicilio_inmueble ?? ''} />
+          <input type="hidden" name="locality_id" value={v.locality_id ?? ''} />
+          <p className="text-sm">
+            <span className="font-semibold">Domicilio:</span> {v.domicilio_inmueble || 'sin cargar'}
+            {' · '}<span className="font-semibold">Localidad:</span> {localidades.find((l) => l.id === v.locality_id)?.nombre ?? 'sin elegir'}
+            <a href={`/expedientes/${expedienteId}/datos-iniciales`} className="ml-2 font-semibold text-azul hover:underline">Cambiar en el paso 1 →</a>
+          </p>
           <label className="grid gap-1">
             <span className="text-sm font-semibold">Barrio</span>
             <select id="neighborhood_id" name="neighborhood_id" defaultValue={v.neighborhood_id ?? ''} className="campo">
               <option value="">Sin elegir</option>
               {barrios.map((b) => <option key={b.id} value={b.id}>{b.nombre}</option>)}
             </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-semibold">Localidad</span>
-            <select id="locality_id" name="locality_id" defaultValue={v.locality_id ?? ''} className="campo">
-              <option value="">{localidades.length === 1 ? localidades[0].nombre : 'Según el barrio'}</option>
-              {localidades.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
-            </select>
-            <span className="text-xs text-tenue">Va en la declaración jurada y en el relevamiento social. Si queda sin elegir, se toma la del barrio.</span>
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1"><span className="text-sm font-semibold">Manzana</span><input id="manzana" name="manzana" defaultValue={v.manzana ?? ''} className="campo" /></label>

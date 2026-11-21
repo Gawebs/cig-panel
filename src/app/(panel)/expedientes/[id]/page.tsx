@@ -9,7 +9,6 @@ import { CargaDocumento } from '@/components/carga-documento'
 import { DescargaPaso } from '@/components/descarga-paso'
 import { AccionEstado } from './accion-estado'
 import { datosFaltantes, type DondeSeCarga, type ExpedienteDatos, type PersonaDatos } from '@/lib/datos-obligatorios'
-import { FormDatosCatastro } from './form-datos-catastro'
 import { FormInmueble } from './form-inmueble'
 import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
 import { proximoPaso } from '@/lib/proximo-paso'
@@ -27,8 +26,9 @@ const FORMULARIO_DE: Record<string, string> = {
 
 const EDITABLES: EstadoExpediente[] =['en_armado', 'devuelto', 'listo_para_revisar', 'observado']
 
-export default async function FichaExpediente({ params }: { params: Promise<{ id: string }> }) {
+export default async function FichaExpediente({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ pdf?: string }> }) {
   const { id } = await params
+  const { pdf } = await searchParams
   const ctx = await obtenerContexto()
   const supabase = await createClient()
 
@@ -80,9 +80,9 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
 
   const faltanDatos = datosFaltantes(exp as unknown as ExpedienteDatos, (personas ?? []) as unknown as PersonaDatos[])
   const IR_A: Record<DondeSeCarga, { href: string; texto: string }> = {
-    personas: { href: '#personas', texto: 'Ir a Personas' },
-    catastro: { href: '#datos-catastro', texto: 'Ir a Datos de Catastro' },
-    inmueble: { href: '#inmueble', texto: 'Ir a Inmueble' },
+    personas: { href: '?pdf=1#personas', texto: 'Ir a Personas' },
+    catastro: { href: `/expedientes/${id}/datos-iniciales`, texto: 'Completar en el paso 1' },
+    inmueble: { href: '?pdf=2#inmueble', texto: 'Ir a Inmueble' },
     ddjj: { href: `/expedientes/${id}/formularios/ddjj`, texto: 'Abrir la declaración jurada' },
   }
 
@@ -92,7 +92,7 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
     roles: ctx.roles,
     datoFaltante: faltanDatos[0] && { texto: faltanDatos[0].texto, href: IR_A[faltanDatos[0].donde].href, boton: IR_A[faltanDatos[0].donde].texto },
     cantidadDatosFaltantes: faltanDatos.length,
-    documentoFaltante: primerDoc && { paso: primerDoc.paso, titulo: primerDoc.titulo, persona: primerDoc.personaNombre, href: `#req-${primerDoc.id}` },
+    documentoFaltante: primerDoc && { paso: primerDoc.paso, titulo: primerDoc.titulo, persona: primerDoc.personaNombre, href: `?pdf=${primerDoc.paso}#req-${primerDoc.id}` },
     cantidadDocumentosFaltantes: checklist.faltantes.length,
     firmados: new Set((documentos ?? []).filter((d) => d.requisito === 'pdf_firmado').map((d) => d.paso)).size,
     prorrogaHasta: (() => {
@@ -112,11 +112,18 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
     return undefined
   }
 
+  // Paso 3 en pestañas, una por cada PDF que pide Catastro. Se abre la primera que falta completar.
+  const pdfElegido = Number(pdf)
+  const pdfActual = [1, 2, 3, 4].includes(pdfElegido) ? pdfElegido : (checklist.pasos.find((p) => p.estado !== 'completo')?.paso ?? 1)
+  const pasoActual = checklist.pasos[pdfActual - 1]
+  const docsDe = (i: (typeof pasoActual.items)[number]) =>
+    (documentos ?? []).filter((d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true))
+
   const acciones = ACCIONES.filter((a) => a.desde.includes(estado) && a.roles.some((r) => ctx.roles.includes(r)))
   const ultimaDevolucion = (eventos ?? []).find((e) => e.a_estado === 'devuelto')
 
   return (
-    <div className="grid gap-6">
+    <div className="mx-auto grid w-full max-w-4xl gap-6">
       {editable && <PasosExpediente expedienteId={id} actual={3} />}
       <div id="arriba" className="flex scroll-mt-16 flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
@@ -134,10 +141,8 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
       <nav aria-label="Partes del expediente" className="sticky top-0 z-10 -mx-2 -my-3 flex gap-1 overflow-x-auto bg-fondo/95 px-2 py-2 backdrop-blur">
         {[
           ['#arriba', '↑ Arriba'],
-          ['#catastro', 'Documentos'],
-          ['#personas', 'Personas'],
-          ['#inmueble', 'Inmueble'],
-          ['#datos-catastro', 'Datos de Catastro'],
+          ['#documentos', 'Documentos (4 PDF)'],
+          ['#catastro', 'Firma y presentación'],
           ['#historial', 'Historial'],
         ].map(([href, texto]) => (
           <a key={href} href={href} className="shrink-0 rounded-full border border-linea bg-papel px-3 py-1.5 text-sm font-semibold text-azul hover:border-azul">
@@ -152,9 +157,24 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
             <p className="text-xs font-bold uppercase tracking-wide text-tenue">{siguiente.tono === 'esperar' ? 'Ahora' : siguiente.tono === 'listo' ? 'Terminado' : 'Próximo paso'}</p>
             <p className="text-lg font-semibold">{siguiente.titulo}</p>
             {siguiente.detalle && <p className="text-sm text-tenue">{siguiente.detalle}</p>}
+            {editable && faltanDatos.length > 1 && (
+              <details className="mt-1 text-sm">
+                <summary className="cursor-pointer font-semibold text-azul">Ver los {faltanDatos.length} datos que faltan</summary>
+                <ul className="mt-1 grid gap-1">
+                  {faltanDatos.map((f) => (
+                    <li key={f.texto} className="flex flex-wrap items-baseline gap-x-2">
+                      <span>• {f.texto}</span>
+                      {IR_A[f.donde].href.startsWith('/')
+                        ? <Link href={IR_A[f.donde].href} className="font-semibold text-azul hover:underline">{IR_A[f.donde].texto} →</Link>
+                        : <a href={IR_A[f.donde].href} className="font-semibold text-azul hover:underline">{IR_A[f.donde].texto} →</a>}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
           {siguiente.boton && (
-            siguiente.boton.href.startsWith('#')
+            !siguiente.boton.href.startsWith('/')
               ? <a href={siguiente.boton.href} className="boton-principal shrink-0">{siguiente.boton.texto} →</a>
               : <Link href={siguiente.boton.href} className="boton-principal shrink-0">{siguiente.boton.texto} →</Link>
           )}
@@ -194,22 +214,189 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
         )
       })()}
 
-      {editable && faltanDatos.length > 0 && (
-        <section className="rounded-xl border border-aviso bg-aviso-suave px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg text-aviso">Faltan {faltanDatos.length} dato(s) para los formularios</h2>
-            <Link href={`/expedientes/${id}/datos-iniciales`} className="boton text-sm">Completar en el paso 1 →</Link>
-          </div>
-          <ul className="mt-2 grid gap-1.5 text-sm">
-            {faltanDatos.map((f) => (
-              <li key={f.texto} className="flex flex-wrap items-baseline gap-x-2">
-                <span>• {f.texto}</span>
-                <a href={IR_A[f.donde].href} className="font-semibold text-azul hover:underline">{IR_A[f.donde].texto} →</a>
+      {/* Paso 3: una pestaña por cada PDF que se sube a Catastro. Se ve una sola a la vez. */}
+      <section id="documentos" className="tarjeta scroll-mt-16 overflow-hidden">
+        <div className="degrade px-5 py-4 text-white">
+          <h2 className="text-xl">Paso 3: Armá los 4 PDF para Catastro</h2>
+          <p className="text-sm opacity-90">Catastro pide 4 PDF. Completá uno por vez: tocá “Sacar foto” o “Elegir archivo” en cada documento. Lo que tiene punto verde ya está.</p>
+        </div>
+        <nav aria-label="PDF para Catastro" className="grid grid-cols-2 gap-2 border-b border-linea px-5 py-3 sm:grid-cols-4">
+          {checklist.pasos.map((p) => (
+            <Link
+              key={p.paso}
+              href={`?pdf=${p.paso}#documentos`}
+              scroll={false}
+              aria-current={p.paso === pdfActual ? 'page' : undefined}
+              className={`grid gap-0.5 rounded-lg border px-3 py-2 text-sm ${p.paso === pdfActual ? 'border-azul bg-azul-suave ring-2 ring-azul' : 'border-linea bg-papel hover:border-azul'}`}
+            >
+              <span className="flex items-center gap-2 font-semibold">
+                <PasoPunto estado={p.estado} />
+                PDF {p.paso}{p.estado === 'completo' ? ' ✓' : ''}
+              </span>
+              <span className="text-tenue">{p.titulo}</span>
+              <span className="text-xs tabular-nums text-tenue">{p.completos} de {p.total}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="grid gap-4 px-5 py-4">
+          <h3 className="text-lg">PDF {pasoActual.paso}: {pasoActual.titulo}</h3>
+          {pdfActual === 1 && checklist.avisos.length > 0 && (
+            <ul className="grid gap-1 rounded-lg bg-aviso-suave px-4 py-3 text-sm text-aviso">
+              {checklist.avisos.map((a) => <li key={a}>• {a}</li>)}
+            </ul>
+          )}
+          <ul className="grid gap-2">
+            {pasoActual.items.map((i) => (
+              <li key={i.id} id={`req-${i.id}`} className="flex scroll-mt-4 items-start gap-3 rounded-lg border border-linea px-3 py-2 target:border-azul target:ring-2 target:ring-azul">
+                <span className={`mt-1 inline-block size-2.5 shrink-0 rounded-full ${i.completo ? 'bg-ok' : 'bg-error'}`} aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <span className="block font-semibold">
+                    {i.completo ? '' : FORMULARIO_DE[i.requisito] ? 'Imprimí, hacé firmar y subí: ' : i.requisito === 'coordenadas' ? 'Escribí: ' : 'Subí: '}
+                    {i.titulo}{i.personaNombre ? ` de ${i.personaNombre}` : ''}
+                  </span>
+                  {i.ayuda && (
+                    <details className="text-sm text-tenue">
+                      <summary className="cursor-pointer text-azul">¿Qué sirve?</summary>
+                      {i.ayuda}
+                    </details>
+                  )}
+                  {i.aviso && <span className="block text-sm font-semibold text-aviso">{i.aviso}</span>}
+                  {i.requisito === 'coordenadas' && (
+                    i.deFicha
+                      ? <span className="block text-sm text-ok">Escritas en Inmueble: {i.deFicha}. Van solas en este PDF, no hace falta subir nada.</span>
+                      : <span className="block text-sm text-tenue">Escribilas abajo, en <a href="#inmueble" className="font-semibold text-azul hover:underline">Inmueble</a> (como las da Google Maps) y listo: no hace falta subir un archivo.</span>
+                  )}
+                  {FORMULARIO_DE[i.requisito] && ley.config.formularios.some((f) => f.clave === FORMULARIO_DE[i.requisito]) && (
+                    <Link href={`/expedientes/${id}/formularios/${FORMULARIO_DE[i.requisito]}`} className="mt-1 inline-block text-sm font-semibold text-azul hover:underline">
+                      Abrir el formulario para imprimir →
+                    </Link>
+                  )}
+                  {!(i.requisito === 'coordenadas' && !(documentos ?? []).some((d) => d.requisito === 'coordenadas')) && <CargaDocumento
+                    expedienteId={id}
+                    municipioId={exp.municipality_id}
+                    paso={i.paso}
+                    requisito={i.requisito}
+                    personaId={i.personaId}
+                    anio={i.anio}
+                    tiposPrueba={i.requisito === 'prueba_posesion' ? tiposDePrueba(ley.config.pruebas_posesion.tipos_aceptados) : undefined}
+                    editable={editable}
+                    documentos={docsDe(i)}
+                  />}
+                </div>
+                <span className={`shrink-0 text-sm font-semibold ${i.completo ? 'text-ok' : 'text-error'}`}>
+                  {i.completo ? 'Cargado' : i.cantidadMinima > 1 ? `${i.cantidadCargada} de ${i.cantidadMinima}` : 'Falta'}
+                </span>
               </li>
             ))}
           </ul>
-        </section>
-      )}
+
+          {/* Lo que se carga para este PDF y no es un documento */}
+          {pdfActual === 1 && (
+            <div id="personas" className="scroll-mt-16">
+              <Personas
+                expedienteId={id}
+                municipioId={exp.municipality_id}
+                personas={(personas ?? []) as PersonaFila[]}
+                editable={editable}
+                grupoFamiliar={ley.config.grupo_familiar}
+              />
+            </div>
+          )}
+          {pdfActual === 2 && (
+            <div id="inmueble" className="scroll-mt-16">
+              <FormInmueble
+                expedienteId={id}
+                editable={editable}
+                barrios={barrios ?? []}
+                localidades={localidades ?? []}
+                valores={{
+                  padron: exp.padron, domicilio_inmueble: exp.domicilio_inmueble, neighborhood_id: exp.neighborhood_id, locality_id: exp.locality_id,
+                  manzana: exp.manzana, lote: exp.lote, coordenadas: exp.coordenadas, notas: exp.notas,
+                }}
+              />
+            </div>
+          )}
+          {pdfActual === 4 && (
+            <section className="rounded-lg border border-linea p-4">
+              <h4 className="font-semibold">Relevamiento en el lugar</h4>
+              {relevamiento ? (
+                <>
+                  <p className="mt-1 text-sm">
+                    {relevamiento.estado === 'en_curso' ? 'Empezado' : 'Terminado'} el {new Date(`${relevamiento.fecha}T12:00:00`).toLocaleDateString('es-AR')} · {respuestasRel.length} respuestas
+                  </p>
+                  {porRevisar > 0 && <p className="mt-1 text-sm font-semibold text-aviso">{porRevisar} {porRevisar === 1 ? 'respuesta grabada' : 'respuestas grabadas'} para revisar</p>}
+                  <Link href={`/expedientes/${id}/relevamiento`} className="mt-2 inline-block text-sm font-semibold text-azul hover:underline">Escuchar y revisar las respuestas →</Link>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-tenue">Todavía no se hizo la visita. El relevador la carga desde el celular, en la aplicación de relevamiento.</p>
+              )}
+            </section>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-linea pt-4">
+            <DescargaPaso
+              expedienteId={id}
+              numeroInterno={exp.numero_interno}
+              paso={pasoActual.paso}
+              completo={pasoActual.estado === 'completo'}
+              hojaCoordenadas={pasoActual.items.find((i) => i.deFicha)?.deFicha}
+              documentos={pasoActual.items.flatMap((i) => docsDe(i).map((d) => d.id))}
+            />
+            {pdfActual < 4 && (
+              <Link href={`?pdf=${pdfActual + 1}#documentos`} scroll={false} className="boton min-h-9 text-sm">
+                Seguir con el PDF {pdfActual + 1} →
+              </Link>
+            )}
+          </div>
+          <p className="text-sm text-tenue">Podés subir varias fotos por documento: se unen solas en un PDF.</p>
+        </div>
+      </section>
+
+      <div id="catastro" className="-mb-6 scroll-mt-16" aria-hidden />
+      <SeccionCatastro
+        expedienteId={id}
+        municipioId={exp.municipality_id}
+        numeroInterno={exp.numero_interno}
+        estado={estado}
+        esDireccion={ctx.roles.includes('direccion')}
+        gestiona={ctx.roles.some((r) => r === 'direccion' || r === 'subdireccion')}
+        pasos={checklist.pasos.map((p) => ({
+          paso: p.paso,
+          titulo: p.titulo,
+          completo: p.estado === 'completo',
+          documentos: p.items.flatMap((i) =>
+            (documentos ?? [])
+              .filter((d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true))
+              .map((d) => d.id),
+          ),
+        }))}
+        firmados={(documentos ?? []).filter((d) => d.requisito === 'pdf_firmado').map((d) => ({ id: d.id, paso: d.paso, created_at: d.created_at }))}
+        numeroCatastro={exp.numero_expediente_catastro}
+        fechaPresentacion={exp.fecha_presentacion}
+        observaciones={(observaciones ?? []) as Observacion[]}
+        faltanDatos={faltanDatos.map((f) => f.texto)}
+        datosPortal={[
+          { etiqueta: 'Marco normativo', valor: ley.valor_catastro },
+          { etiqueta: 'Padrón', valor: exp.padron },
+          ...(exp.padron_2 ? [{ etiqueta: 'Segundo padrón', valor: exp.padron_2 }] : []),
+          ...(personas ?? []).filter((p) => p.rol !== 'grupo_familiar').flatMap((p) => {
+            const quien = `${ROLES_PERSONA[p.rol as keyof typeof ROLES_PERSONA]} ${p.solicitante_numero}`
+            return [
+              { etiqueta: `${quien}: apellido`, valor: p.apellido },
+              { etiqueta: `${quien}: nombre`, valor: p.nombre },
+              { etiqueta: `${quien}: DNI`, valor: p.dni },
+              { etiqueta: `${quien}: CUIL`, valor: p.cuil },
+              ...(p.rol === 'solicitante' ? [
+                { etiqueta: `${quien}: teléfono`, valor: p.telefono },
+                { etiqueta: `${quien}: correo`, valor: p.correo },
+              ] : []),
+            ]
+          }),
+          { etiqueta: 'Domicilio del inmueble', valor: exp.domicilio_inmueble },
+          { etiqueta: 'Coordenadas', valor: exp.coordenadas },
+        ]}
+      />
 
       {acciones.length > 0 && (
         <section id="acciones" className="tarjeta flex scroll-mt-4 flex-wrap items-start gap-3 p-4">
@@ -227,222 +414,22 @@ export default async function FichaExpediente({ params }: { params: Promise<{ id
         </section>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="grid min-w-0 gap-6">
-          {/* Los 4 pasos de Catastro */}
-          <section className="tarjeta overflow-hidden">
-            <div className="degrade px-5 py-4 text-white">
-              <h2 className="text-xl">Paso 3: Subí los documentos</h2>
-              <p className="text-sm opacity-90">En cada uno tocá “Sacar foto” o “Elegir archivo”. Lo que tiene punto verde ya está.</p>
-            </div>
-            {checklist.avisos.length > 0 && (
-              <ul className="grid gap-1 border-b border-linea bg-aviso-suave px-5 py-3 text-sm text-aviso">
-                {checklist.avisos.map((a) => <li key={a}>• {a}</li>)}
-              </ul>
-            )}
-            <ol className="divide-y divide-linea">
-              {checklist.pasos.map((p) => (
-                <li key={p.paso} className="px-5 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="flex items-center gap-2 text-lg">
-                      <PasoPunto estado={p.estado} />
-                      Parte {p.paso} de Catastro: {p.titulo}
-                    </h3>
-                    <span className="text-sm tabular-nums text-tenue">{p.completos} de {p.total}</span>
-                  </div>
-                  <DescargaPaso
-                    expedienteId={id}
-                    numeroInterno={exp.numero_interno}
-                    paso={p.paso}
-                    completo={p.estado === 'completo'}
-                    hojaCoordenadas={p.items.find((i) => i.deFicha)?.deFicha}
-                    documentos={p.items.flatMap((i) =>
-                      (documentos ?? [])
-                        .filter((d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true))
-                        .map((d) => d.id),
-                    )}
-                  />
-                  <ul className="mt-3 grid gap-2">
-                    {p.items.map((i) => (
-                      <li key={i.id} id={`req-${i.id}`} className="flex scroll-mt-4 items-start gap-3 rounded-lg border border-linea px-3 py-2 target:border-azul target:ring-2 target:ring-azul">
-                        <span className={`mt-1 inline-block size-2.5 shrink-0 rounded-full ${i.completo ? 'bg-ok' : 'bg-error'}`} aria-hidden />
-                        <div className="min-w-0 flex-1">
-                          <span className="block font-semibold">
-                            {i.completo ? '' : FORMULARIO_DE[i.requisito] ? 'Imprimí, hacé firmar y subí: ' : i.requisito === 'coordenadas' ? 'Escribí: ' : 'Subí: '}
-                            {i.titulo}{i.personaNombre ? ` de ${i.personaNombre}` : ''}
-                          </span>
-                          {i.ayuda && (
-                            <details className="text-sm text-tenue">
-                              <summary className="cursor-pointer text-azul">¿Qué sirve?</summary>
-                              {i.ayuda}
-                            </details>
-                          )}
-                          {i.aviso && <span className="block text-sm font-semibold text-aviso">{i.aviso}</span>}
-                          {i.requisito === 'coordenadas' && (
-                            i.deFicha
-                              ? <span className="block text-sm text-ok">Escritas en Inmueble: {i.deFicha}. Van solas en el PDF del paso 2, no hace falta subir nada.</span>
-                              : <span className="block text-sm text-tenue">Escribilas en <a href="#inmueble" className="font-semibold text-azul hover:underline">Inmueble</a> (como las da Google Maps) y listo: no hace falta subir un archivo.</span>
-                          )}
-                          {FORMULARIO_DE[i.requisito] && ley.config.formularios.some((f) => f.clave === FORMULARIO_DE[i.requisito]) && (
-                            <Link href={`/expedientes/${id}/formularios/${FORMULARIO_DE[i.requisito]}`} className="mt-1 inline-block text-sm font-semibold text-azul hover:underline">
-                              Abrir el formulario para imprimir →
-                            </Link>
-                          )}
-                          {!(i.requisito === 'coordenadas' && !(documentos ?? []).some((d) => d.requisito === 'coordenadas')) && <CargaDocumento
-                            expedienteId={id}
-                            municipioId={exp.municipality_id}
-                            paso={i.paso}
-                            requisito={i.requisito}
-                            personaId={i.personaId}
-                            anio={i.anio}
-                            tiposPrueba={i.requisito === 'prueba_posesion' ? tiposDePrueba(ley.config.pruebas_posesion.tipos_aceptados) : undefined}
-                            editable={editable}
-                            documentos={(documentos ?? []).filter(
-                              (d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true),
-                            )}
-                          />}
-                        </div>
-                        <span className={`shrink-0 text-sm font-semibold ${i.completo ? 'text-ok' : 'text-error'}`}>
-                          {i.completo ? 'Cargado' : i.cantidadMinima > 1 ? `${i.cantidadCargada} de ${i.cantidadMinima}` : 'Falta'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ol>
-            <p className="border-t border-linea bg-fondo px-5 py-3 text-sm text-tenue">
-              Podés subir varias fotos por documento: se unen solas en un PDF.
-            </p>
-          </section>
-
-          <div id="catastro" className="-mb-6 scroll-mt-16" aria-hidden />
-          <SeccionCatastro
-            expedienteId={id}
-            municipioId={exp.municipality_id}
-            numeroInterno={exp.numero_interno}
-            estado={estado}
-            esDireccion={ctx.roles.includes('direccion')}
-            gestiona={ctx.roles.some((r) => r === 'direccion' || r === 'subdireccion')}
-            pasos={checklist.pasos.map((p) => ({
-              paso: p.paso,
-              titulo: p.titulo,
-              completo: p.estado === 'completo',
-              documentos: p.items.flatMap((i) =>
-                (documentos ?? [])
-                  .filter((d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true))
-                  .map((d) => d.id),
-              ),
-            }))}
-            firmados={(documentos ?? []).filter((d) => d.requisito === 'pdf_firmado').map((d) => ({ id: d.id, paso: d.paso, created_at: d.created_at }))}
-            numeroCatastro={exp.numero_expediente_catastro}
-            fechaPresentacion={exp.fecha_presentacion}
-            observaciones={(observaciones ?? []) as Observacion[]}
-            faltanDatos={faltanDatos.map((f) => f.texto)}
-            datosPortal={[
-              { etiqueta: 'Marco normativo', valor: ley.valor_catastro },
-              { etiqueta: 'Padrón', valor: exp.padron },
-              ...(exp.padron_2 ? [{ etiqueta: 'Segundo padrón', valor: exp.padron_2 }] : []),
-              ...(personas ?? []).filter((p) => p.rol !== 'grupo_familiar').flatMap((p) => {
-                const quien = `${ROLES_PERSONA[p.rol as keyof typeof ROLES_PERSONA]} ${p.solicitante_numero}`
-                return [
-                  { etiqueta: `${quien}: apellido`, valor: p.apellido },
-                  { etiqueta: `${quien}: nombre`, valor: p.nombre },
-                  { etiqueta: `${quien}: DNI`, valor: p.dni },
-                  { etiqueta: `${quien}: CUIL`, valor: p.cuil },
-                  ...(p.rol === 'solicitante' ? [
-                    { etiqueta: `${quien}: teléfono`, valor: p.telefono },
-                    { etiqueta: `${quien}: correo`, valor: p.correo },
-                  ] : []),
-                ]
-              }),
-              { etiqueta: 'Domicilio del inmueble', valor: exp.domicilio_inmueble },
-              { etiqueta: 'Coordenadas', valor: exp.coordenadas },
-            ]}
-          />
-
-          <div id="personas" className="scroll-mt-16">
-          <Personas
-            expedienteId={id}
-            municipioId={exp.municipality_id}
-            personas={(personas ?? []) as PersonaFila[]}
-            editable={editable}
-            grupoFamiliar={ley.config.grupo_familiar}
-          />
-          </div>
-        </div>
-
-        <aside className="grid content-start gap-6">
-          <section className="tarjeta p-5">
-            <h2 className="text-lg">Falta traer</h2>
-            {checklist.faltantes.length === 0 ? (
-              <p className="mt-2 text-ok">No falta nada.</p>
-            ) : (
-              <ul className="mt-2 grid gap-1 text-sm">
-                {checklist.faltantes.slice(0, 12).map((f) => (
-                  <li key={f.id}>• {f.titulo}{f.personaNombre ? ` — ${f.personaNombre.replace(/ \(.*\)$/, '')}` : ''}</li>
-                ))}
-                {checklist.faltantes.length > 12 && <li className="text-tenue">y {checklist.faltantes.length - 12} más</li>}
-              </ul>
-            )}
-          </section>
-
-          <section className="tarjeta p-5">
-            <h2 className="text-lg">Relevamiento en el lugar</h2>
-            {relevamiento ? (
-              <>
-                <p className="mt-2 text-sm">
-                  {relevamiento.estado === 'en_curso' ? 'Empezado' : 'Terminado'} el {new Date(`${relevamiento.fecha}T12:00:00`).toLocaleDateString('es-AR')} · {respuestasRel.length} respuestas
-                </p>
-                {porRevisar > 0 && <p className="mt-1 text-sm font-semibold text-aviso">{porRevisar} {porRevisar === 1 ? 'respuesta grabada' : 'respuestas grabadas'} para revisar</p>}
-                <Link href={`/expedientes/${id}/relevamiento`} className="mt-2 inline-block text-sm font-semibold text-azul hover:underline">Escuchar y revisar las respuestas →</Link>
-              </>
-            ) : (
-              <p className="mt-2 text-sm text-tenue">Todavía no se hizo la visita. El relevador la carga desde el celular, en la aplicación de relevamiento.</p>
-            )}
-          </section>
-
-          <div id="inmueble" className="scroll-mt-16">
-          <FormInmueble
-            expedienteId={id}
-            editable={editable}
-            barrios={barrios ?? []}
-            localidades={localidades ?? []}
-            valores={{
-              padron: exp.padron, domicilio_inmueble: exp.domicilio_inmueble, neighborhood_id: exp.neighborhood_id, locality_id: exp.locality_id,
-              manzana: exp.manzana, lote: exp.lote, coordenadas: exp.coordenadas, notas: exp.notas,
-            }}
-          />
-          </div>
-
-          <div id="datos-catastro" className="scroll-mt-16">
-          <FormDatosCatastro
-            expedienteId={id}
-            editable={editable}
-            padron={exp.padron}
-            padron2={exp.padron_2}
-            catastrales={(exp.datos_catastrales ?? {}) as Record<string, string>}
-          />
-          </div>
-
-          <section id="historial" className="tarjeta scroll-mt-16 p-5">
-            <h2 className="text-lg">Historial</h2>
-            <ol className="mt-3 grid gap-3 text-sm">
-              {(eventos ?? []).map((e) => (
-                <li key={e.id} className="border-l-2 border-linea pl-3">
-                  <span className="block font-semibold">
-                    {e.tipo === 'creado' ? 'Expediente abierto' : e.tipo === 'nota' ? 'Nota' : ESTADOS[e.a_estado as EstadoExpediente]?.texto}
-                  </span>
-                  {e.nota && <span className="block">{e.nota}</span>}
-                  <span className="block text-tenue">
-                    {(e.profiles as unknown as { nombre: string } | null)?.nombre ?? '—'} · {new Date(e.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-        </aside>
-      </div>
+      <section id="historial" className="tarjeta scroll-mt-16 p-5">
+        <h2 className="text-lg">Historial</h2>
+        <ol className="mt-3 grid gap-3 text-sm">
+          {(eventos ?? []).map((e) => (
+            <li key={e.id} className="border-l-2 border-linea pl-3">
+              <span className="block font-semibold">
+                {e.tipo === 'creado' ? 'Expediente abierto' : e.tipo === 'nota' ? 'Nota' : ESTADOS[e.a_estado as EstadoExpediente]?.texto}
+              </span>
+              {e.nota && <span className="block">{e.nota}</span>}
+              <span className="block text-tenue">
+                {(e.profiles as unknown as { nombre: string } | null)?.nombre ?? '—'} · {new Date(e.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   )
 }
