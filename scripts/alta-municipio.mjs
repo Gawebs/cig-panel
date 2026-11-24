@@ -90,6 +90,7 @@ const fila = await ok(
     area_nombre: m.area_nombre ?? 'Dirección de Regularización Dominial y Hábitat',
     secretaria_nombre: m.secretaria_nombre ?? 'Secretaría de Gobierno',
     plazo_catastro_dias: m.plazo_catastro_dias ?? 10, plazo_catastro_tipo: m.plazo_catastro_tipo ?? 'habiles',
+    informe_intendente: m.informe_intendente ?? false,
   }, { onConflict: 'slug' }).select('id').single(),
   'municipio',
 )

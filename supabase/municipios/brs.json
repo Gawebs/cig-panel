@@ -12,6 +12,7 @@
   "correo_catastro": "",
   "plazo_catastro_dias": 10,
   "plazo_catastro_tipo": "habiles",
+  "informe_intendente": true,
   "leyes": ["ley_pierri", "ley_5670", "ley_8162"],
   "localidades": [
     {

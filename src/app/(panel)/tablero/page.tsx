@@ -1,16 +1,7 @@
 import Link from 'next/link'
-import { obtenerContexto } from '@/lib/sesion'
+import { obtenerContexto, tieneRol } from '@/lib/sesion'
 import { createClient } from '@/lib/supabase/server'
-import type { EstadoExpediente } from '@/lib/textos'
-
-// Etapas del trámite, agrupando estados, para leer el avance de un vistazo.
-const ETAPAS: { clave: string; titulo: string; estados: EstadoExpediente[]; color: string }[] = [
-  { clave: 'armado', titulo: 'En armado', estados: ['en_armado', 'devuelto'], color: 'bg-azul-suave text-azul' },
-  { clave: 'oficina', titulo: 'Revisión y firma', estados: ['listo_para_revisar', 'aprobado', 'firmado'], color: 'bg-aviso-suave text-aviso' },
-  { clave: 'catastro', titulo: 'En Catastro', estados: ['presentado', 'reingresado', 'prorroga_pedida'], color: 'bg-azul-suave text-azul' },
-  { clave: 'observado', titulo: 'Observados', estados: ['observado'], color: 'bg-error-suave text-error' },
-  { clave: 'aceptado', titulo: 'Aceptados', estados: ['aceptado'], color: 'bg-ok-suave text-ok' },
-]
+import { ETAPAS, ROLES_INFORME } from '@/lib/informe'
 
 function diasHasta(iso: string) {
   const hoy = new Date(`${new Date().toLocaleDateString('sv-SE')}T12:00:00`).getTime()
@@ -22,7 +13,7 @@ export default async function Tablero() {
   const supabase = await createClient()
   const muni = ctx.municipio!.id
 
-  const [{ data: expedientes }, { data: observaciones }] = await Promise.all([
+  const [{ data: expedientes }, { data: observaciones }, { data: opciones }] = await Promise.all([
     supabase
       .from('case_files')
       .select('id, estado, framework_id, legal_frameworks(nombre_corto), neighborhoods(nombre)')
@@ -34,7 +25,10 @@ export default async function Tablero() {
       .select('id, case_file_id, vence_el, prorroga_hasta, estado, texto, case_files(numero_interno)')
       .eq('municipality_id', muni)
       .neq('estado', 'respondida'),
+    // Informe para el intendente: opcional por municipio.
+    supabase.from('municipalities').select('informe_intendente').eq('id', muni).maybeSingle(),
   ])
+  const puedeInforme = Boolean(opciones?.informe_intendente) && (ctx.esSoporte || tieneRol(ctx, ...ROLES_INFORME))
 
   const lista = expedientes ?? []
   const etapaDe = (estado: string) => ETAPAS.find((e) => (e.estados as string[]).includes(estado))?.clave
@@ -63,9 +57,16 @@ export default async function Tablero() {
 
   return (
     <div className="grid gap-6">
-      <div>
-        <h1 className="text-3xl">Tablero</h1>
-        <p className="text-tenue">{lista.length} expedientes en curso o terminados · {avance}% aceptados por Catastro</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl">Tablero</h1>
+          <p className="text-tenue">{lista.length} expedientes en curso o terminados · {avance}% aceptados por Catastro</p>
+        </div>
+        {puedeInforme && (
+          <a href="/imprimir/informe" target="_blank" rel="noopener" className="boton-principal" title="Informe para el intendente, con proyecciones, listo para imprimir o guardar como PDF">
+            Generar informe
+          </a>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
