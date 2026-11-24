@@ -55,6 +55,17 @@ export default async function FichaExpediente({ params, searchParams }: { params
     .eq('case_file_id', id)
     .order('recibida_el', { ascending: false })
   const { data: localidades } = await supabase.from('localities').select('id, nombre').eq('municipality_id', exp.municipality_id).order('nombre')
+  // Quién supervisa los expedientes en este municipio (rol Subdirección): su nombre sale de los usuarios, no está escrito a mano.
+  const { data: supervisores } = await supabase
+    .from('memberships')
+    .select('profiles(nombre, activo)')
+    .eq('municipality_id', exp.municipality_id)
+    .contains('roles', ['subdireccion'])
+  const nombresSupervision = (supervisores ?? [])
+    .map((m) => m.profiles as unknown as { nombre: string | null; activo: boolean } | null)
+    .filter((p) => p?.activo && p.nombre)
+    .map((p) => p!.nombre!)
+  const supervision = nombresSupervision.length ? nombresSupervision.join(' o ') : 'la Subdirección'
   const respuestasRel = Object.values((relevamiento?.respuestas ?? {}) as Record<string, { texto: string; origen: string; revisado?: boolean }>)
   const porRevisar = respuestasRel.filter((r) => r.origen === 'voz' && !r.revisado).length
 
@@ -200,7 +211,8 @@ export default async function FichaExpediente({ params, searchParams }: { params
         ]
         return (
           <section className="tarjeta p-4">
-            <h2 className="text-lg">Antes de aprobar</h2>
+            <h2 className="text-lg">Revisión de {supervision}</h2>
+            <p className="text-sm text-tenue">Antes de aprobar, fijate que esté todo:</p>
             <ul className="mt-2 grid gap-1.5 text-sm">
               {puntos.map((p) => (
                 <li key={p.texto} className="flex items-start gap-2">
@@ -400,6 +412,9 @@ export default async function FichaExpediente({ params, searchParams }: { params
 
       {acciones.length > 0 && (
         <section id="acciones" className="tarjeta flex scroll-mt-4 flex-wrap items-start gap-3 p-4">
+          {estado === 'listo_para_revisar' && (
+            <p className="w-full text-sm text-tenue">Lo revisa y lo aprueba o lo devuelve: <strong className="text-tinta">{supervision}</strong>.</p>
+          )}
           {acciones.map((a) => (
             <AccionEstado
               key={a.hacia}
