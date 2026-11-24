@@ -6,7 +6,7 @@
  * - lectura del código de barras del DNI
  * - lectura del texto del dorso del DNI (lector local, sin servicios externos)
  */
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 
 const LADO_MAXIMO = 1800 // px: suficiente para leer un acta, sin pesar de más
 const CALIDAD_JPEG = 0.72
@@ -41,12 +41,18 @@ export async function comprimirImagen(archivo: Blob): Promise<{ bytes: Uint8Arra
 }
 
 /** Une fotos y PDF (en el orden recibido) en un único PDF en hoja A4. */
-export async function unirEnPdf(archivos: File[]): Promise<{ bytes: Uint8Array; paginas: number }> {
+/**
+ * Une fotos y PDF en un solo PDF. `rotulos`: título que se escribe arriba de cada foto, en el mismo orden
+ * (ej.: FRENTE, CONTRAFRENTE…), para que Catastro sepa qué es cada una.
+ */
+export async function unirEnPdf(archivos: File[], rotulos?: string[]): Promise<{ bytes: Uint8Array; paginas: number }> {
   if (archivos.length === 0) throw new Error('No hay archivos para unir.')
   const pdf = await PDFDocument.create()
   const A4 = { ancho: 595.28, alto: 841.89, margen: 18 }
+  const negrita = rotulos?.length ? await pdf.embedFont(StandardFonts.HelveticaBold) : null
+  const ALTO_ROTULO = 46
 
-  for (const archivo of archivos) {
+  for (const [n, archivo] of archivos.entries()) {
     if (archivo.type === 'application/pdf' || archivo.name.toLowerCase().endsWith('.pdf')) {
       const origen = await PDFDocument.load(await archivo.arrayBuffer(), { ignoreEncryption: true })
       const paginas = await pdf.copyPages(origen, origen.getPageIndices())
@@ -59,10 +65,19 @@ export async function unirEnPdf(archivos: File[]): Promise<{ bytes: Uint8Array; 
     const { bytes, ancho, alto } = await comprimirImagen(archivo)
     const imagen = await pdf.embedJpg(bytes)
     const pagina = pdf.addPage([A4.ancho, A4.alto])
-    const escala = Math.min((A4.ancho - 2 * A4.margen) / ancho, (A4.alto - 2 * A4.margen) / alto)
+    const rotulo = rotulos?.[n]
+    const arriba = rotulo && negrita ? ALTO_ROTULO : 0
+    const escala = Math.min((A4.ancho - 2 * A4.margen) / ancho, (A4.alto - 2 * A4.margen - arriba) / alto)
     const w = ancho * escala
     const h = alto * escala
-    pagina.drawImage(imagen, { x: (A4.ancho - w) / 2, y: (A4.alto - h) / 2, width: w, height: h })
+    // Foto y título se centran juntos: el título queda justo arriba de la foto.
+    const y = (A4.alto - h - arriba) / 2
+    pagina.drawImage(imagen, { x: (A4.ancho - w) / 2, y, width: w, height: h })
+    if (rotulo && negrita) {
+      const tam = 20
+      const ancho = negrita.widthOfTextAtSize(rotulo, tam)
+      pagina.drawText(rotulo, { x: (A4.ancho - ancho) / 2, y: y + h + 16, size: tam, font: negrita, color: rgb(0, 0, 0) })
+    }
   }
 
   return { bytes: await pdf.save(), paginas: pdf.getPageCount() }

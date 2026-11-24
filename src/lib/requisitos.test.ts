@@ -83,6 +83,18 @@ describe('Ley Pierri, paso 1', () => {
     expect(c.avisos.join(' ')).toMatch(/estado civil/)
     expect(claves(c, 1)).not.toContain('acta_matrimonio:p1')
   })
+
+  it('la captura de Google Earth aparece en el PDF 2 pero es opcional', () => {
+    const doc = (requisito: string) => ({ paso: 2, requisito, person_id: null, anio: null })
+    const c = armarChecklist({
+      config: configPierri, personas: [titular('soltero')], fechaApertura: apertura,
+      documentos: [doc('coordenadas'), doc('croquis'), doc('fotos_inmueble')],
+    })
+    const paso2 = c.pasos[1]
+    expect(paso2.items.find((i) => i.requisito === 'captura_google_earth')?.opcional).toBe(true)
+    expect(paso2.total).toBe(3)
+    expect(paso2.estado).toBe('completo')
+  })
 })
 
 describe('La Milagrosa y Menem: grupo familiar, sin actas de los padres', () => {

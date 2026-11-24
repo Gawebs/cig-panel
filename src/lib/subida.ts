@@ -6,6 +6,8 @@ import { unirEnPdf } from '@/lib/escaneo'
 import { createClient } from '@/lib/supabase/client'
 
 /** Une las páginas en un PDF, lo sube al depósito privado y lo registra contra el requisito. Devuelve la ruta. */
+export const ROTULOS_FOTOS_INMUEBLE = ['FRENTE', 'CONTRAFRENTE', 'INTERIOR 1', 'INTERIOR 2']
+
 export async function subirDocumento(p: {
   expedienteId: string
   municipioId: string
@@ -16,7 +18,11 @@ export async function subirDocumento(p: {
   tipoPrueba?: string | null
   paginas: File[]
 }): Promise<string> {
-  const { bytes, paginas } = await unirEnPdf(p.paginas)
+  // Las 4 fotos del inmueble (en el orden que pide Catastro) llevan escrito qué es cada una.
+  const rotulos = p.requisito === 'fotos_inmueble' && p.paginas.length === 4 && p.paginas.every((f) => f.type.startsWith('image/'))
+    ? ROTULOS_FOTOS_INMUEBLE
+    : undefined
+  const { bytes, paginas } = await unirEnPdf(p.paginas, rotulos)
   const nombre = `${p.requisito}${p.anio ? `-${p.anio}` : ''}-${crypto.randomUUID().slice(0, 8)}.pdf`
   const ruta = `${p.municipioId}/${p.expedienteId}/${nombre}`
   const supabase = createClient()

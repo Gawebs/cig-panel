@@ -26,6 +26,15 @@ const FORMULARIO_DE: Record<string, string> = {
 
 const EDITABLES: EstadoExpediente[] =['en_armado', 'devuelto', 'listo_para_revisar', 'observado']
 
+type PartePdfConfig = { letra: string; titulo: string; requisitos: string[] }
+/** PDF 2: Catastro lo recibe en dos archivos. */
+const PARTES_PDF: Record<number, PartePdfConfig[] | undefined> = {
+  2: [
+    { letra: 'a', titulo: 'Fotos del inmueble', requisitos: ['fotos_inmueble'] },
+    { letra: 'b', titulo: 'Ubicación: coordenadas, croquis y Google Earth', requisitos: ['coordenadas', 'croquis', 'captura_google_earth'] },
+  ],
+}
+
 export default async function FichaExpediente({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ pdf?: string }> }) {
   const { id } = await params
   const { pdf } = await searchParams
@@ -129,6 +138,53 @@ export default async function FichaExpediente({ params, searchParams }: { params
   const pasoActual = checklist.pasos[pdfActual - 1]
   const docsDe = (i: (typeof pasoActual.items)[number]) =>
     (documentos ?? []).filter((d) => d.requisito === i.requisito && (i.personaId ? d.person_id === i.personaId : true) && (i.anio ? d.anio === i.anio : true))
+
+  // Pasos que Catastro recibe en varios PDF: cada parte con sus documentos, en este orden.
+  const partesActual = PARTES_PDF[pasoActual.paso]
+  const itemsDeParte = (parte: PartePdfConfig) =>
+    parte.requisitos.flatMap((r) => pasoActual.items.filter((i) => i.requisito === r))
+  const filaDocumento = (i: (typeof pasoActual.items)[number]) => (
+    <li key={i.id} id={`req-${i.id}`} className="flex scroll-mt-4 items-start gap-3 rounded-lg border border-linea px-3 py-2 target:border-azul target:ring-2 target:ring-azul">
+      <span className={`mt-1 inline-block size-2.5 shrink-0 rounded-full ${i.opcional && !i.cantidadCargada ? 'bg-linea' : i.completo ? 'bg-ok' : 'bg-error'}`} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <span className="block font-semibold">
+          {i.completo && !i.opcional ? '' : i.opcional && !i.cantidadCargada ? 'Podés sumar: ' : FORMULARIO_DE[i.requisito] ? 'Imprimí, hacé firmar y subí: ' : i.requisito === 'coordenadas' ? 'Escribí: ' : 'Subí: '}
+          {i.titulo}{i.personaNombre ? ` de ${i.personaNombre}` : ''}
+        </span>
+        {i.ayuda && (
+          <details className="text-sm text-tenue">
+            <summary className="cursor-pointer text-azul">¿Qué sirve?</summary>
+            {i.ayuda}
+          </details>
+        )}
+        {i.aviso && <span className="block text-sm font-semibold text-aviso">{i.aviso}</span>}
+        {i.requisito === 'coordenadas' && (
+          i.deFicha
+            ? <span className="block text-sm text-ok">Escritas en Inmueble: {i.deFicha}. Van solas en este PDF, no hace falta subir nada.</span>
+            : <span className="block text-sm text-tenue">Escribilas abajo, en <a href="#inmueble" className="font-semibold text-azul hover:underline">Inmueble</a> (como las da Google Maps) y listo: no hace falta subir un archivo.</span>
+        )}
+        {FORMULARIO_DE[i.requisito] && ley.config.formularios.some((f) => f.clave === FORMULARIO_DE[i.requisito]) && (
+          <Link href={`/expedientes/${id}/formularios/${FORMULARIO_DE[i.requisito]}`} className="mt-1 inline-block text-sm font-semibold text-azul hover:underline">
+            Abrir el formulario para imprimir →
+          </Link>
+        )}
+        {!(i.requisito === 'coordenadas' && !(documentos ?? []).some((d) => d.requisito === 'coordenadas')) && <CargaDocumento
+          expedienteId={id}
+          municipioId={exp.municipality_id}
+          paso={i.paso}
+          requisito={i.requisito}
+          personaId={i.personaId}
+          anio={i.anio}
+          tiposPrueba={i.requisito === 'prueba_posesion' ? tiposDePrueba(ley.config.pruebas_posesion.tipos_aceptados) : undefined}
+          editable={editable}
+          documentos={docsDe(i)}
+        />}
+      </div>
+      <span className={`shrink-0 text-sm font-semibold ${i.opcional && !i.cantidadCargada ? 'text-tenue' : i.completo ? 'text-ok' : 'text-error'}`}>
+        {i.opcional && !i.cantidadCargada ? 'Opcional' : i.completo ? 'Cargado' : i.cantidadMinima > 1 ? `${i.cantidadCargada} de ${i.cantidadMinima}` : 'Falta'}
+      </span>
+    </li>
+  )
 
   const acciones = ACCIONES.filter((a) => a.desde.includes(estado) && a.roles.some((r) => ctx.roles.includes(r)))
   const ultimaDevolucion = (eventos ?? []).find((e) => e.a_estado === 'devuelto')
@@ -258,50 +314,16 @@ export default async function FichaExpediente({ params, searchParams }: { params
               {checklist.avisos.map((a) => <li key={a}>• {a}</li>)}
             </ul>
           )}
-          <ul className="grid gap-2">
-            {pasoActual.items.map((i) => (
-              <li key={i.id} id={`req-${i.id}`} className="flex scroll-mt-4 items-start gap-3 rounded-lg border border-linea px-3 py-2 target:border-azul target:ring-2 target:ring-azul">
-                <span className={`mt-1 inline-block size-2.5 shrink-0 rounded-full ${i.completo ? 'bg-ok' : 'bg-error'}`} aria-hidden />
-                <div className="min-w-0 flex-1">
-                  <span className="block font-semibold">
-                    {i.completo ? '' : FORMULARIO_DE[i.requisito] ? 'Imprimí, hacé firmar y subí: ' : i.requisito === 'coordenadas' ? 'Escribí: ' : 'Subí: '}
-                    {i.titulo}{i.personaNombre ? ` de ${i.personaNombre}` : ''}
-                  </span>
-                  {i.ayuda && (
-                    <details className="text-sm text-tenue">
-                      <summary className="cursor-pointer text-azul">¿Qué sirve?</summary>
-                      {i.ayuda}
-                    </details>
-                  )}
-                  {i.aviso && <span className="block text-sm font-semibold text-aviso">{i.aviso}</span>}
-                  {i.requisito === 'coordenadas' && (
-                    i.deFicha
-                      ? <span className="block text-sm text-ok">Escritas en Inmueble: {i.deFicha}. Van solas en este PDF, no hace falta subir nada.</span>
-                      : <span className="block text-sm text-tenue">Escribilas abajo, en <a href="#inmueble" className="font-semibold text-azul hover:underline">Inmueble</a> (como las da Google Maps) y listo: no hace falta subir un archivo.</span>
-                  )}
-                  {FORMULARIO_DE[i.requisito] && ley.config.formularios.some((f) => f.clave === FORMULARIO_DE[i.requisito]) && (
-                    <Link href={`/expedientes/${id}/formularios/${FORMULARIO_DE[i.requisito]}`} className="mt-1 inline-block text-sm font-semibold text-azul hover:underline">
-                      Abrir el formulario para imprimir →
-                    </Link>
-                  )}
-                  {!(i.requisito === 'coordenadas' && !(documentos ?? []).some((d) => d.requisito === 'coordenadas')) && <CargaDocumento
-                    expedienteId={id}
-                    municipioId={exp.municipality_id}
-                    paso={i.paso}
-                    requisito={i.requisito}
-                    personaId={i.personaId}
-                    anio={i.anio}
-                    tiposPrueba={i.requisito === 'prueba_posesion' ? tiposDePrueba(ley.config.pruebas_posesion.tipos_aceptados) : undefined}
-                    editable={editable}
-                    documentos={docsDe(i)}
-                  />}
-                </div>
-                <span className={`shrink-0 text-sm font-semibold ${i.completo ? 'text-ok' : 'text-error'}`}>
-                  {i.completo ? 'Cargado' : i.cantidadMinima > 1 ? `${i.cantidadCargada} de ${i.cantidadMinima}` : 'Falta'}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {partesActual ? (
+            partesActual.map((parte) => (
+              <div key={parte.letra} className="grid gap-2">
+                <h4 className="font-semibold">PDF {pasoActual.paso}{parte.letra}: {parte.titulo}</h4>
+                <ul className="grid gap-2">{itemsDeParte(parte).map(filaDocumento)}</ul>
+              </div>
+            ))
+          ) : (
+            <ul className="grid gap-2">{pasoActual.items.map(filaDocumento)}</ul>
+          )}
 
           {/* Lo que se carga para este PDF y no es un documento */}
           {pdfActual === 1 && (
@@ -347,14 +369,34 @@ export default async function FichaExpediente({ params, searchParams }: { params
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-linea pt-4">
-            <DescargaPaso
-              expedienteId={id}
-              numeroInterno={exp.numero_interno}
-              paso={pasoActual.paso}
-              completo={pasoActual.estado === 'completo'}
-              hojaCoordenadas={pasoActual.items.find((i) => i.deFicha)?.deFicha}
-              documentos={pasoActual.items.flatMap((i) => docsDe(i).map((d) => d.id))}
-            />
+            {partesActual ? (
+              <div className="grid gap-1">
+                {partesActual.map((parte) => {
+                  const items = itemsDeParte(parte)
+                  return (
+                    <DescargaPaso
+                      key={parte.letra}
+                      expedienteId={id}
+                      numeroInterno={exp.numero_interno}
+                      paso={pasoActual.paso}
+                      parte={parte}
+                      completo={items.every((i) => i.completo)}
+                      hojaCoordenadas={items.find((i) => i.deFicha)?.deFicha}
+                      documentos={items.flatMap((i) => docsDe(i).map((d) => d.id))}
+                    />
+                  )
+                })}
+              </div>
+            ) : (
+              <DescargaPaso
+                expedienteId={id}
+                numeroInterno={exp.numero_interno}
+                paso={pasoActual.paso}
+                completo={pasoActual.estado === 'completo'}
+                hojaCoordenadas={pasoActual.items.find((i) => i.deFicha)?.deFicha}
+                documentos={pasoActual.items.flatMap((i) => docsDe(i).map((d) => d.id))}
+              />
+            )}
             {pdfActual < 4 && (
               <Link href={`?pdf=${pdfActual + 1}#documentos`} scroll={false} className="boton min-h-9 text-sm">
                 Seguir con el PDF {pdfActual + 1} →

@@ -121,6 +121,8 @@ export interface ItemChecklist {
   aviso?: string
   /** Dato escrito en la ficha que cumple el requisito sin subir un archivo (las coordenadas). */
   deFicha?: string
+  /** Se puede agregar, pero no hace falta para completar el paso. */
+  opcional?: boolean
 }
 
 export interface EstadoPaso {
@@ -259,6 +261,20 @@ export function armarChecklist(params: {
         completo: cargados >= 1 || Boolean(escritas),
         deFicha: escritas,
       })
+      // Junto al croquis se puede sumar una captura de Google Earth (no la pide Catastro: ayuda a ubicar el lote).
+      if (req.clave === 'croquis') {
+        items.push({
+          id: 'captura_google_earth',
+          paso: req.paso,
+          requisito: 'captura_google_earth',
+          titulo: 'Captura de Google Earth (opcional)',
+          ayuda: 'Una captura de pantalla de Google Earth con el lote marcado. Ayuda a ubicarlo, pero no es obligatoria.',
+          cantidadMinima: 0,
+          cantidadCargada: contar(documentos, 'captura_google_earth'),
+          completo: true,
+          opcional: true,
+        })
+      }
       continue
     }
 
@@ -329,16 +345,18 @@ export function armarChecklist(params: {
 
   const pasos: EstadoPaso[] = ([1, 2, 3, 4] as Paso[]).map((paso) => {
     const delPaso = ordenados.filter((i) => i.paso === paso)
-    const completos = delPaso.filter((i) => i.completo).length
-    const algunoCargado = delPaso.some((i) => i.cantidadCargada > 0)
+    // Los opcionales se muestran, pero no cuentan para "x de y" ni para completar el paso.
+    const obligatorios = delPaso.filter((i) => !i.opcional)
+    const completos = obligatorios.filter((i) => i.completo).length
+    const algunoCargado = obligatorios.some((i) => i.cantidadCargada > 0)
     return {
       paso,
       titulo: PASOS[paso].titulo,
       items: delPaso,
       completos,
-      total: delPaso.length,
+      total: obligatorios.length,
       estado:
-        delPaso.length > 0 && completos === delPaso.length
+        obligatorios.length > 0 && completos === obligatorios.length
           ? 'completo'
           : algunoCargado
             ? 'incompleto'
