@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ACCIONES, ESTADOS, ROLES_PERSONA, type EstadoExpediente } from '@/lib/textos'
 import { CargaDocumento } from '@/components/carga-documento'
 import { DescargaPaso } from '@/components/descarga-paso'
+import { VistaPreviaPaso, type EntradaVista, type ParteVista } from '@/components/vista-previa-paso'
 import { AccionEstado } from './accion-estado'
 import { datosFaltantes, type DondeSeCarga, type ExpedienteDatos, type PersonaDatos } from '@/lib/datos-obligatorios'
 import { FormInmueble } from './form-inmueble'
@@ -143,6 +144,21 @@ export default async function FichaExpediente({ params, searchParams }: { params
   const partesActual = PARTES_PDF[pasoActual.paso]
   const itemsDeParte = (parte: PartePdfConfig) =>
     parte.requisitos.flatMap((r) => pasoActual.items.filter((i) => i.requisito === r))
+  // Lo que muestra "Ver cómo va quedando": cada documento en el orden del PDF, con lo cargado o una hoja "FALTA".
+  const entradaVista = (i: (typeof pasoActual.items)[number]): EntradaVista => ({
+    id: i.id,
+    titulo: `${i.titulo}${i.personaNombre ? ` de ${i.personaNombre}` : ''}`,
+    documentos: docsDe(i).map((d) => d.id),
+    falta: !i.completo,
+    detalle: i.cantidadMinima > 1 && !i.completo ? `${i.cantidadCargada} de ${i.cantidadMinima} cargadas` : i.aviso,
+    opcional: i.opcional,
+  })
+  const partesVista: ParteVista[] = partesActual
+    ? partesActual.map((parte) => {
+        const items = itemsDeParte(parte)
+        return { nombre: `PDF ${pasoActual.paso}${parte.letra}: ${parte.titulo}`, hojaCoordenadas: items.find((i) => i.deFicha)?.deFicha, entradas: items.map(entradaVista) }
+      })
+    : [{ nombre: `PDF ${pasoActual.paso}: ${pasoActual.titulo}`, hojaCoordenadas: pasoActual.items.find((i) => i.deFicha)?.deFicha, entradas: pasoActual.items.map(entradaVista) }]
   const filaDocumento = (i: (typeof pasoActual.items)[number]) => (
     <li key={i.id} id={`req-${i.id}`} className="flex scroll-mt-4 items-start gap-3 rounded-lg border border-linea px-3 py-2 target:border-azul target:ring-2 target:ring-azul">
       <span className={`mt-1 inline-block size-2.5 shrink-0 rounded-full ${i.opcional && !i.cantidadCargada ? 'bg-linea' : i.completo ? 'bg-ok' : 'bg-error'}`} aria-hidden />
@@ -308,7 +324,10 @@ export default async function FichaExpediente({ params, searchParams }: { params
         </nav>
 
         <div className="grid gap-4 px-5 py-4">
-          <h3 className="text-lg">PDF {pasoActual.paso}: {pasoActual.titulo}</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg">PDF {pasoActual.paso}: {pasoActual.titulo}</h3>
+            <VistaPreviaPaso expedienteId={id} numeroInterno={exp.numero_interno} partes={partesVista} />
+          </div>
           {pdfActual === 1 && checklist.avisos.length > 0 && (
             <ul className="grid gap-1 rounded-lg bg-aviso-suave px-4 py-3 text-sm text-aviso">
               {checklist.avisos.map((a) => <li key={a}>• {a}</li>)}

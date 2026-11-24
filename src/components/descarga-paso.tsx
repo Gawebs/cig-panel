@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
+import { agregarHojaCoordenadas, agregarPdf } from '@/lib/pdf-paso'
 import { enlacesDocumentos } from '@/actions/documentos'
 
 /**
@@ -32,25 +33,13 @@ export function DescargaPaso(props: {
       const { urls, error } = await enlacesDocumentos(props.expedienteId, props.documentos)
       if (error || !urls) throw new Error(error)
       const final = await PDFDocument.create()
-      if (props.hojaCoordenadas) {
-        const hoja = final.addPage([595.28, 841.89])
-        const negrita = await final.embedFont(StandardFonts.HelveticaBold)
-        const normal = await final.embedFont(StandardFonts.Helvetica)
-        const [lat, lng] = props.hojaCoordenadas.split(',').map((x) => x.trim())
-        hoja.drawText('COORDENADAS DE UBICACIÓN DEL INMUEBLE', { x: 60, y: 760, size: 15, font: negrita })
-        hoja.drawText(`Expediente ${props.numeroInterno}`, { x: 60, y: 735, size: 11, font: normal, color: rgb(0.3, 0.3, 0.3) })
-        hoja.drawText(`${lat},${lng}`, { x: 60, y: 690, size: 20, font: negrita })
-        hoja.drawText(`Latitud: ${lat}    Longitud: ${lng}`, { x: 60, y: 662, size: 11, font: normal })
-        hoja.drawText(`Ver en el mapa: https://www.google.com/maps?q=${lat},${lng}`, { x: 60, y: 640, size: 10, font: normal, color: rgb(0.1, 0.3, 0.7) })
-      }
+      if (props.hojaCoordenadas) await agregarHojaCoordenadas(final, props.hojaCoordenadas, props.numeroInterno)
       for (const url of urls) {
         const bytes = await fetch(url).then((r) => {
           if (!r.ok) throw new Error('No se pudo bajar un documento.')
           return r.arrayBuffer()
         })
-        const doc = await PDFDocument.load(bytes, { ignoreEncryption: true })
-        const paginas = await final.copyPages(doc, doc.getPageIndices())
-        paginas.forEach((p) => final.addPage(p))
+        await agregarPdf(final, bytes)
       }
       final.setTitle(`${props.numeroInterno} - Paso ${nombrePaso}${props.parte ? ` - ${props.parte.titulo}` : ''}`)
       const archivo = new Blob([(await final.save()) as BlobPart], { type: 'application/pdf' })
