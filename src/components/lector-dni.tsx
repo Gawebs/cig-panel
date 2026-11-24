@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { calcularCuil, extraerDomicilio, interpretarCodigoDni, separarDomicilio, type DatosDni } from '@/lib/dni'
 import { leerCodigoDni, leerCodigoEnCanvas, leerTexto } from '@/lib/escaneo'
 import { CamaraGuiada, type Validacion } from '@/components/camara-guiada'
@@ -44,10 +44,14 @@ export function LectorDni({ onLectura, onFotos }: {
   const [estadoFrente, setEstadoFrente] = useState('')
   const [estadoDorso, setEstadoDorso] = useState('')
   const [camara, setCamara] = useState<'frente' | 'dorso' | null>(null)
-  const [leyendo, setLeyendo] = useState<'frente' | 'dorso' | null>(null)
+  const [leyendo, setLeyendo] = useState(false)
+  const [aviso, setAviso] = useState('')
 
+  // Ref para que frente y dorso subidos juntos no se pisen (el estado todavía no se actualizó).
+  const fotosRef = useRef<{ frente?: File; dorso?: File }>({})
   const guardarFoto = (lado: 'frente' | 'dorso', archivo: File) => {
-    const nuevas = { ...fotos, [lado]: archivo }
+    const nuevas = { ...fotosRef.current, [lado]: archivo }
+    fotosRef.current = nuevas
     setFotos(nuevas)
     onFotos(nuevas)
   }
@@ -71,65 +75,67 @@ export function LectorDni({ onLectura, onFotos }: {
     setEstadoDorso(`Domicilio leído: ${calle}${ciudad ? ` · Ciudad: ${ciudad}` : ''}. Revisalo: un error acá termina en una observación de Catastro.`)
   }
 
-  /** Foto que ya está en la computadora: se lee igual que la sacada con la cámara. */
-  const desdeArchivo = async (lado: 'frente' | 'dorso', archivo?: File) => {
-    if (!archivo) return
-    if (!archivo.type.startsWith('image/')) {
-      const aviso = 'Elegí una foto (JPG o PNG). Un PDF no se puede leer acá.'
-      if (lado === 'frente') setEstadoFrente(aviso)
-      else setEstadoDorso(aviso)
+  /**
+   * Fotos que ya están en la computadora (una o las dos juntas). Se leen igual que las de la cámara:
+   * la que tiene el código de barras es el frente; si no, se prueba como dorso.
+   */
+  const desdeArchivos = async (archivos: File[]) => {
+    if (!archivos.length) return
+    setAviso('')
+    const imagenes = archivos.filter((a) => a.type.startsWith('image/')).slice(0, 2)
+    if (!imagenes.length) {
+      setAviso('Elegí fotos (JPG o PNG). Un PDF no se puede leer acá.')
       return
     }
-    setLeyendo(lado)
+    setLeyendo(true)
+    const sinLeer: string[] = []
     try {
-      if (lado === 'frente') {
-        setEstadoFrente('Leyendo el código de barras…')
-        const r = await validarFrente(archivo)
-        if (r.ok) alLeerFrente(archivo, r.datos)
-        else setEstadoFrente('No se pudo leer el código de barras de esa foto. Probá con otra más nítida, o sacala con la cámara.')
-      } else {
-        const r = await validarDorso(archivo, setEstadoDorso)
-        if (r.ok) alLeerDorso(archivo, r.datos)
-        else setEstadoDorso('No se pudo leer el domicilio de esa foto. Probá con otra más nítida y derecha, o sacala con la cámara.')
+      for (const archivo of imagenes) {
+        setAviso(`Leyendo ${archivo.name}…`)
+        try {
+          const frente = await validarFrente(archivo)
+          if (frente.ok) { alLeerFrente(archivo, frente.datos); continue }
+          const dorso = await validarDorso(archivo, (t) => setAviso(`${archivo.name}: ${t}`))
+          if (dorso.ok) { alLeerDorso(archivo, dorso.datos); continue }
+          sinLeer.push(archivo.name)
+        } catch {
+          sinLeer.push(archivo.name)
+        }
       }
-    } catch {
-      const aviso = 'No se pudo abrir esa foto. Probá con otra.'
-      if (lado === 'frente') setEstadoFrente(aviso)
-      else setEstadoDorso(aviso)
+      setAviso(sinLeer.length
+        ? `No se pudo leer ${sinLeer.join(' ni ')}: ni el código de barras del frente ni el domicilio del dorso. Probá con una foto más nítida y derecha, o sacala con la cámara.`
+        : '')
     } finally {
-      setLeyendo(null)
+      setLeyendo(false)
     }
   }
-
-  const botonArchivo = (lado: 'frente' | 'dorso') => (
-    <label className={`boton min-h-9 cursor-pointer text-sm ${leyendo ? 'pointer-events-none opacity-50' : ''}`}>
-      {lado === 'frente' ? 'Subir frente desde la compu' : 'Subir dorso desde la compu'}
-      <input
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        disabled={leyendo !== null}
-        onChange={(e) => { const a = e.target.files?.[0]; e.target.value = ''; desdeArchivo(lado, a) }}
-      />
-    </label>
-  )
 
   return (
     <div className="grid gap-2 rounded-lg border border-dashed border-azul bg-papel p-3">
       <p className="text-sm font-semibold">Leer el DNI</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => setCamara('frente')} className="boton min-h-9 text-sm" disabled={leyendo !== null}>
+        <button type="button" onClick={() => setCamara('frente')} className="boton min-h-9 text-sm" disabled={leyendo}>
           {fotos.frente ? '✓ Frente (cambiar)' : 'Foto del frente'}
         </button>
-        <button type="button" onClick={() => setCamara('dorso')} className="boton min-h-9 text-sm" disabled={leyendo !== null}>
+        <button type="button" onClick={() => setCamara('dorso')} className="boton min-h-9 text-sm" disabled={leyendo}>
           {fotos.dorso ? '✓ Dorso (cambiar)' : 'Foto del dorso'}
         </button>
+        <label
+          className={`boton min-h-9 cursor-pointer text-sm ${leyendo ? 'pointer-events-none opacity-50' : ''}`}
+          title="Elegí la foto del frente, la del dorso o las dos juntas"
+        >
+          {leyendo ? 'Leyendo…' : 'Subir desde la compu'}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            disabled={leyendo}
+            onChange={(e) => { const lista = Array.from(e.target.files ?? []); e.target.value = ''; desdeArchivos(lista) }}
+          />
+        </label>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-tenue">¿Ya tenés las fotos en la compu?</span>
-        {botonArchivo('frente')}
-        {botonArchivo('dorso')}
-      </div>
+      {aviso && <p className="text-sm text-azul" aria-live="polite">{aviso}</p>}
       {estadoFrente && <p className="text-sm text-azul" aria-live="polite">{estadoFrente}</p>}
       {estadoDorso && <p className="text-sm text-azul" aria-live="polite">{estadoDorso}</p>}
       {(fotos.frente || fotos.dorso) && (
