@@ -205,6 +205,14 @@ export function EditorFormulario(props: {
   }
 
   const campoInput = (c: CampoPlantilla) => {
+    // Parte del rótulo que le falta al original (ej.: los dos puntos): se ve como el rótulo, no como casillero.
+    if (c.rotulo) {
+      return (
+        <span key={c.id} aria-hidden className="absolute font-bold leading-none text-black" style={{ ...caja(c.x0, c.x1, c.y), fontFamily: 'Arial, Helvetica, sans-serif', fontSize: `${12 * escala}px` }}>
+          {valores[c.id]}
+        </span>
+      )
+    }
     const soloLectura = !props.editable || c.fuente.tipo === 'marco' || c.fuente.tipo === 'fijo' || (c.fuente.tipo === 'expediente' && SOLO_LECTURA.has(c.fuente.campo))
     const comun = {
       id: `f-${c.id}`,

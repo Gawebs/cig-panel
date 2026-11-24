@@ -51,7 +51,7 @@ describe('Impresión sobre el PDF original', () => {
   })
 
   it.each([
-    ['ley_5670/solicitud', 1], ['ley_5670/ddjj', 2], ['ley_8162/solicitud', 2], ['ley_8162/ddjj', 2], ['ley_pierri/anexo_i', 1],
+    ['ley_5670/solicitud', 1], ['ley_5670/ddjj', 2], ['ley_8162/solicitud', 2], ['ley_8162/ddjj', 2], ['ley_pierri/anexo_i', 1], ['ley_pierri/ddjj', 1],
   ])('%s sale con sus %i hoja(s) y todos los casilleros', async (clave, hojas) => {
     const p = PLANTILLAS[clave]
     const valores: Record<string, string> = Object.fromEntries(p.campos.map((c) => [c.id, c.etiqueta.split(':').pop()!.trim().slice(0, 16)]))

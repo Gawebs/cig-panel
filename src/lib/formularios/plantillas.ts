@@ -22,7 +22,8 @@ export type CampoFamiliar = 'apellido_nombre' | 'dni' | 'edad' | 'vinculo' | 'oc
 export type Fuente =
   | { tipo: 'persona'; slot: Slot; campo: CampoPersona }
   | { tipo: 'expediente'; campo: CampoExpediente }
-  | { tipo: 'formulario'; clave: string }
+  /** Dato propio del formulario. `predeterminado`: lo que se imprime mientras nadie lo cambie. */
+  | { tipo: 'formulario'; clave: string; predeterminado?: string }
   /** Integrante del grupo familiar conviviente de un solicitante (1.º, 2.º, 3.º…). */
   | { tipo: 'familiar'; solicitante: 1 | 2; indice: number; campo: CampoFamiliar }
   /** Lo que anotó el relevador en el lugar (observaciones) o la fecha de la visita. */
@@ -41,6 +42,8 @@ export interface CampoPlantilla {
   y: number
   fuente: Fuente
   control?: 'texto' | 'estado_civil'
+  /** Se imprime como parte del rótulo impreso (negrita 12), no como dato. */
+  rotulo?: boolean
   /** Texto largo repartido en varios renglones del formulario. */
   lineas?: number
   interlineado?: number
@@ -534,6 +537,9 @@ export const PLANTILLAS: Record<string, Plantilla> = {
       { id: 'domicilio_inmueble', etiqueta: 'Domicilio del inmueble', pagina: 0, x0: 240, x1: 566, y: 187.9, fuente: { tipo: 'expediente', campo: 'domicilio_inmueble' } },
       { id: 'localidad', etiqueta: 'Localidad', pagina: 0, x0: 154, x1: 310, y: 224.5, fuente: { tipo: 'expediente', campo: 'localidad' } },
       { id: 'departamento', etiqueta: 'Departamento', pagina: 0, x0: 424, x1: 566, y: 224.8, fuente: { tipo: 'expediente', campo: 'departamento' } },
+      // "DECLARO SER POSEESOR" (así en el original) no trae dos puntos ni lugar para la respuesta.
+      { id: 'declaro_dos_puntos', etiqueta: 'Dos puntos', pagina: 0, x0: 233.6, x1: 240, y: 260.5, rotulo: true, fuente: { tipo: 'fijo', valor: ':' } },
+      { id: 'declaro_poseedor', etiqueta: 'Declaro ser poseedor', pagina: 0, x0: 244, x1: 330, y: 260.5, fuente: { tipo: 'formulario', clave: 'declaro_poseedor', predeterminado: 'SI' } },
       ...personas({
         s1: [302.6, 316.8, 331.0, 345.2],
         c1: [383.7, 397.9],
@@ -646,7 +652,7 @@ export function valoresDesdeFicha(p: Plantilla, exp: FichaExpediente, personas: 
   for (const c of p.campos) {
     const f = c.fuente
     if (f.tipo === 'formulario') {
-      v[c.id] = exp.valores_formularios[p.clave]?.[f.clave] ?? (f.clave === 'fecha' ? fechaArgentina(exp.fecha_apertura) : '')
+      v[c.id] = exp.valores_formularios[p.clave]?.[f.clave] ?? (f.clave === 'fecha' ? fechaArgentina(exp.fecha_apertura) : f.predeterminado ?? '')
     } else if (f.tipo === 'fijo') {
       v[c.id] = f.valor
     } else if (f.tipo === 'marco') {

@@ -24,6 +24,7 @@ export async function generarPdf(
   })
   const pdf = await PDFDocument.load(original)
   const fuente = await pdf.embedFont(StandardFonts.Helvetica)
+  const negrita = await pdf.embedFont(StandardFonts.HelveticaBold)
 
   // Se escribe sobre las hojas originales y al final se quitan las que no se imprimen:
   // si se quitan antes, pdf-lib pierde lo escrito en algunas hojas (pasaba con el Anexo I).
@@ -72,6 +73,12 @@ export async function generarPdf(
 
   for (const c of plantilla.campos) {
     const valor = textoImpreso(c, valores[c.id] ?? '')
+    // Parte del rótulo que le falta al original (ej.: los dos puntos): negrita 12 como los rótulos.
+    if (c.rotulo) {
+      const p = pagina(c.pagina)
+      if (valor) p.drawText(valor, { x: c.x0, y: p.getHeight() - (c.y - 2.7), size: 12, font: negrita, color: rgb(0, 0, 0) })
+      continue
+    }
     if ((c.lineas && c.lineas > 1) || c.renglones) {
       escribirRenglones(c, valor)
       continue
