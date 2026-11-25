@@ -5,7 +5,7 @@ import { quitarDocumentoPorRuta } from '@/actions/documentos'
 import { expedienteExiste, guardarRelevamiento } from '@/actions/relevamiento'
 import { createClient } from '@/lib/supabase/client'
 import { subirDocumento } from '@/lib/subida'
-import {
+import { recordarSubidos,
   borrarArchivo, estaPendiente, leerArchivo, listarRelevamientos, marcarSincronizado,
   type ClaveFoto, type RelevamientoCampo,
 } from './almacen'
@@ -108,6 +108,15 @@ export async function sincronizarRelevamiento(r: RelevamientoCampo, numero: stri
     }
   }
 
+  // Lo subido hasta acá queda anotado en el celular aunque el paso 5 falle (si no, se sube repetido en cada intento).
+  await recordarSubidos(r.id, (actual) => ({
+    ...actual,
+    subidos: { ...actual.subidos, ...subidos },
+    respuestas: Object.fromEntries(
+      Object.entries(actual.respuestas).map(([c, resp]) => [c, rutasAudio[c] && resp.audioId === r.respuestas[c]?.audioId ? { ...resp, audioRuta: rutasAudio[c] } : resp]),
+    ),
+  }))
+
   // 5. Respuestas y observaciones → ficha del expediente
   const respuestas = Object.fromEntries(
     Object.entries(r.respuestas).map(([clave, resp]) => [
@@ -164,11 +173,11 @@ async function subirPendientes(numeros: Record<string, string>): Promise<Resulta
       const res = await sincronizarRelevamiento(r, numeros[r.expedienteId] ?? '')
       if (res.ok) subidos++
       else if (res.expedienteBorrado) borrados.push(r.id)
-      else errores.push(`${numeros[r.expedienteId] ?? 'Expediente'}: ${res.mensaje}`)
+      else errores.push(`${numeros[r.expedienteId] ?? `Expediente (código ${r.expedienteId.slice(0, 8)})`}: ${res.mensaje}`)
     } catch (e) {
       // Sin conexión no es un error: queda guardado y se sube en el próximo intento.
       if (esFaltaDeConexion(e)) return { subidos, errores, sinConexion: true, borrados }
-      errores.push(`${numeros[r.expedienteId] ?? 'Expediente'}: ${e instanceof Error ? e.message : 'error al subir'}`)
+      errores.push(`${numeros[r.expedienteId] ?? `Expediente (código ${r.expedienteId.slice(0, 8)})`}: ${e instanceof Error ? e.message : 'error al subir'}`)
     }
   }
   return { subidos, errores, sinConexion: false, borrados }

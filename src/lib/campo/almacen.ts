@@ -188,6 +188,16 @@ export async function borrarRelevamiento(id: string): Promise<void> {
   await promesa((await almacen('relevamientos', 'readwrite')).delete(id))
 }
 
+/**
+ * Recuerda lo que ya se subió (PDF de fotos, croquis, coordenadas, audios) aunque el resto de la subida
+ * falle después: así el próximo intento no lo vuelve a subir repetido. No toca la hora de modificación.
+ */
+export async function recordarSubidos(id: string, mutar: (r: RelevamientoCampo) => RelevamientoCampo): Promise<void> {
+  const actual = await promesa<RelevamientoCampo | undefined>((await almacen('relevamientos')).get(id))
+  if (!actual) return
+  await promesa((await almacen('relevamientos', 'readwrite')).put(mutar(actual)))
+}
+
 export async function listarRelevamientos(): Promise<RelevamientoCampo[]> {
   return promesa((await almacen('relevamientos')).getAll())
 }

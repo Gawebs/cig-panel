@@ -91,7 +91,7 @@ export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promi
   const { error } = previo
     ? await supabase.from('field_surveys').update(fila).eq('id', d.id).select('id').single()
     : await supabase.from('field_surveys').insert(fila).select('id').single()
-  if (error) return { error: `No se pudo guardar el relevamiento: ${textoError(error)}` }
+  if (error) return { error: `No se pudo guardar el relevamiento: ${textoError(error)} (${previo ? 'actualizar' : 'crear'}, código ${error.code ?? '?'})` }
 
   const aviso = await aplicarRelevamiento(supabase, d.id)
   revalidatePath(`/expedientes/${d.expedienteId}`)
