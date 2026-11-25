@@ -13,3 +13,15 @@ describe('mensajes de error', () => {
     expect(textoError({ code: 'XX000', message: 'something odd' })).toMatch(/inesperado/)
   })
 })
+
+describe('avisos de validación con el nombre del casillero', () => {
+  it('reescribe el genérico "Demasiado grande" y respeta los propios', async () => {
+    const { z } = await import('zod')
+    const { mensajeValidacion } = await import('./errores')
+    z.config(z.locales.es())
+    const largo = z.object({ padron: z.string().max(8) }).safeParse({ padron: '123456789' })
+    expect(mensajeValidacion(largo.error!)).toBe('Padrón: es demasiado largo (hasta 8 caracteres).')
+    const propio = z.object({ apellido: z.string().min(1, 'Falta el apellido.') }).safeParse({ apellido: '' })
+    expect(mensajeValidacion(propio.error!)).toBe('Falta el apellido.')
+  })
+})

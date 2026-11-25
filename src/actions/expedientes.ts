@@ -1,6 +1,7 @@
 'use server'
 
-import { textoError } from '@/lib/errores'
+import { mensajeValidacion, textoError } from '@/lib/errores'
+import { nombrePropio, oracion, soloNumeros } from '@/lib/ortografia'
 import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -19,6 +20,12 @@ function conValores(formData: FormData, error: string): Resultado {
 }
 
 const texto = (max = 120) => z.string().trim().max(max)
+// Nombres, apellidos, ciudades y domicilios se guardan con mayúscula inicial (ver ortografia.ts).
+const propio = (max = 120) => opcional(max).transform((v) => (v ? nombrePropio(v) : v))
+// El DNI se acepta con puntos o espacios ("28.123.456") y se guarda solo con los números.
+const dniCampo = z.string().optional()
+  .transform((v) => (v === undefined ? undefined : soloNumeros(v.trim()) || null))
+  .refine((v) => !v || /^\d{7,8}$/.test(v), 'El DNI tiene que tener 7 u 8 números.')
 // Campo que la pantalla puede no mandar: si no viene, no se toca (undefined no se envía a la base);
 // si viene vacío, se guarda como null.
 const opcional = (max = 120) =>
@@ -41,7 +48,7 @@ function inmuebleDelFormulario(formData: FormData): { error?: string; campos: Re
   const campos: Record<string, string | boolean | null> = {}
   const f = (k: string) => (formData.has(k) ? String(formData.get(k) ?? '').trim() : undefined)
   const domicilio = f('domicilio_inmueble')
-  if (domicilio !== undefined) campos.domicilio_inmueble = domicilio.slice(0, 160) || null
+  if (domicilio !== undefined) campos.domicilio_inmueble = nombrePropio(domicilio).slice(0, 160) || null
   const origen = f('origen_posesion')
   if (origen !== undefined) {
     if (origen && origen !== 'compra' && origen !== 'otro') return { error: 'Elegí cómo empezó la posesión.', campos }
@@ -73,9 +80,9 @@ function inmuebleDelFormulario(formData: FormData): { error?: string; campos: Re
 
 const esquemaApertura = z.object({
   ley: z.enum(['ley_pierri', 'ley_5670', 'ley_8162']),
-  apellido: texto().min(1, 'Falta el apellido del titular.'),
-  nombre: texto(),
-  dni: opcional(8).refine((v) => !v || /^\d{7,8}$/.test(v), 'El DNI tiene que tener 7 u 8 números, sin puntos.'),
+  apellido: texto().min(1, 'Falta el apellido del titular.').transform(nombrePropio),
+  nombre: texto().transform(nombrePropio),
+  dni: dniCampo,
   estado_civil: z.enum(['', 'soltero', 'casado', 'viudo', 'divorciado', 'conviviente']),
   padron: opcional(20),
   padron_confirmacion: opcional(20),
@@ -85,10 +92,10 @@ const esquemaApertura = z.object({
     .refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
   telefono: opcional(30),
   correo: opcional(120).refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), 'El correo no es válido: revisalo (ejemplo: nombre@gmail.com).'),
-  ciudad: opcional(80),
+  ciudad: propio(80),
   sexo: z.enum(['', 'F', 'M', 'X']).optional(),
   fecha_nacimiento: opcional(10).refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), 'Fecha de nacimiento inválida.'),
-  domicilio: opcional(160),
+  domicilio: propio(160),
   origen_datos: z.string().optional(),
 })
 
@@ -99,7 +106,7 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
   }
 
   const datos = esquemaApertura.safeParse(Object.fromEntries(formData))
-  if (!datos.success) return conValores(formData, datos.error.issues[0].message)
+  if (!datos.success) return conValores(formData, mensajeValidacion(datos.error))
   const d = datos.data
   const inmueble = inmuebleDelFormulario(formData)
   if (inmueble.error) return conValores(formData, inmueble.error)
@@ -157,17 +164,17 @@ const esquemaPersona = z.object({
   id: z.string().uuid().optional().or(z.literal('')),
   rol: z.enum(['solicitante', 'conyuge', 'grupo_familiar']),
   solicitante_numero: z.coerce.number().int().min(1).max(10),
-  apellido: texto().min(1, 'Falta el apellido.'),
-  nombre: texto(),
-  dni: opcional(8).refine((v) => !v || /^\d{7,8}$/.test(v), 'El DNI tiene que tener 7 u 8 números, sin puntos.'),
+  apellido: texto().min(1, 'Falta el apellido.').transform(nombrePropio),
+  nombre: texto().transform(nombrePropio),
+  dni: dniCampo,
   cuil: opcional(13).refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
   telefono: opcional(30),
   correo: opcional(120).refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), 'El correo no es válido: revisalo (ejemplo: nombre@gmail.com).'),
-  domicilio: opcional(160),
-  ciudad: opcional(80),
+  domicilio: propio(160),
+  ciudad: propio(80),
   estado_civil: z.enum(['', 'soltero', 'casado', 'viudo', 'divorciado', 'conviviente']).optional().transform((v) => (v === undefined ? undefined : v || null)),
-  vinculo: opcional(40),
-  ocupacion: opcional(60),
+  vinculo: opcional(40).transform((v) => (v ? oracion(v) : v)),
+  ocupacion: opcional(60).transform((v) => (v ? oracion(v) : v)),
   sexo: z.enum(['', 'F', 'M', 'X']).optional().transform((v) => (v === undefined ? undefined : v || null)),
   fecha_nacimiento: opcional(10).refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), 'Fecha de nacimiento inválida.'),
   origen_datos: z.string().optional().transform((v) => {
@@ -251,7 +258,7 @@ async function guardarConyuge(expedienteId: string, formData: FormData): Promise
 export async function guardarPersona(expedienteId: string, _prev: Resultado, formData: FormData): Promise<Resultado> {
   await obtenerContexto()
   const datos = esquemaPersona.safeParse(Object.fromEntries(formData))
-  if (!datos.success) return conValores(formData, datos.error.issues[0].message)
+  if (!datos.success) return conValores(formData, mensajeValidacion(datos.error))
   const { id, origen_datos, ...campos } = datos.data
 
   const supabase = await createClient()
@@ -331,7 +338,7 @@ const esquemaInmueble = z.object({
 export async function guardarInmueble(expedienteId: string, _prev: Resultado, formData: FormData): Promise<Resultado> {
   await obtenerContexto()
   const datos = esquemaInmueble.safeParse(Object.fromEntries(formData))
-  if (!datos.success) return conValores(formData, datos.error.issues[0].message)
+  if (!datos.success) return conValores(formData, mensajeValidacion(datos.error))
   const supabase = await createClient()
   const cambios = { ...datos.data }
   // Sin localidad elegida: la del barrio; si el municipio tiene una sola, esa.

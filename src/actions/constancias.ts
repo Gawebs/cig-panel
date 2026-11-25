@@ -1,6 +1,6 @@
 'use server'
 
-import { textoError } from '@/lib/errores'
+import { mensajeValidacion, textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -46,7 +46,7 @@ export async function crearConstancia(_prev: RespuestaConstancia, formData: Form
   const ctx = await obtenerContexto()
   if (!ctx.municipio || !tieneRol(ctx, 'armado', 'relevamiento', 'subdireccion', 'direccion')) return conValores(formData, 'Tu usuario no puede cargar constancias.')
   const v = esquema.safeParse(Object.fromEntries(formData))
-  if (!v.success) return conValores(formData, v.error.issues[0].message)
+  if (!v.success) return conValores(formData, mensajeValidacion(v.error))
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('tenure_certificates')
@@ -61,7 +61,7 @@ export async function crearConstancia(_prev: RespuestaConstancia, formData: Form
 export async function guardarConstancia(id: string, _prev: RespuestaConstancia, formData: FormData): Promise<RespuestaConstancia> {
   await obtenerContexto()
   const v = esquema.safeParse(Object.fromEntries(formData))
-  if (!v.success) return conValores(formData, v.error.issues[0].message)
+  if (!v.success) return conValores(formData, mensajeValidacion(v.error))
   const supabase = await createClient()
   const { data, error } = await supabase.from('tenure_certificates').update(await conBarrio(supabase, v.data)).eq('id', id).select('id')
   if (error) return conValores(formData, `No se pudo guardar: ${textoError(error)}`)

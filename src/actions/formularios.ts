@@ -1,5 +1,6 @@
 'use server'
 
+import { nombrePropio, oracion, soloNumeros } from '@/lib/ortografia'
 import { textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { obtenerContexto } from '@/lib/sesion'
@@ -119,14 +120,15 @@ export async function guardarFormulario(
     if (f.tipo === 'familiar') {
       const clave = `${f.solicitante}.${f.indice}`
       const datos = cambiosFamiliar.get(clave) ?? {}
-      if (f.campo === 'apellido_nombre') Object.assign(datos, separarNombre(valor, familiaresDe(personas, f.solicitante)[f.indice - 1]?.apellido))
+      if (f.campo === 'apellido_nombre') Object.assign(datos, separarNombre(nombrePropio(valor), familiaresDe(personas, f.solicitante)[f.indice - 1]?.apellido))
       else if (f.campo === 'dni') {
-        if (valor && !/^\d{7,8}$/.test(valor)) return { error: `${campo.etiqueta}: 7 u 8 números, sin puntos.` }
+        valor = soloNumeros(valor)
+        if (valor && !/^\d{7,8}$/.test(valor)) return { error: `${campo.etiqueta}: 7 u 8 números.` }
         datos.dni = valor || null
       } else if (f.campo === 'edad') {
         if (valor && !/^\d{1,3}$/.test(valor)) return { error: `${campo.etiqueta}: solo el número de años.` }
         datos.edad_declarada = valor ? Number(valor) : null
-      } else datos[f.campo] = valor || null
+      } else datos[f.campo] = (f.campo === 'vinculo' || f.campo === 'ocupacion' ? oracion(valor) : valor) || null
       cambiosFamiliar.set(clave, datos)
       continue
     }
@@ -150,9 +152,10 @@ export async function guardarFormulario(
     // Persona
     const persona = cambiosPersona.get(f.slot) ?? {}
     if (f.campo === 'apellido_nombre') {
-      Object.assign(persona, separarNombre(valor, personaDeSlot(personas, f.slot)?.apellido))
+      Object.assign(persona, separarNombre(nombrePropio(valor), personaDeSlot(personas, f.slot)?.apellido))
     } else if (f.campo === 'dni') {
-      if (valor && !/^\d{7,8}$/.test(valor)) return { error: `${campo.etiqueta}: 7 u 8 números, sin puntos.` }
+      valor = soloNumeros(valor)
+      if (valor && !/^\d{7,8}$/.test(valor)) return { error: `${campo.etiqueta}: 7 u 8 números.` }
       persona.dni = valor || null
     } else if (f.campo === 'cuil') {
       // Si lo escriben sin guiones, se los ponemos.
@@ -163,7 +166,9 @@ export async function guardarFormulario(
       if (valor && !ESTADOS_CIVILES.includes(valor)) return { error: `${campo.etiqueta}: elegí una opción de la lista.` }
       persona.estado_civil = valor || null
     } else {
-      persona[f.campo] = valor || null
+      // Domicilio y ciudad con mayúscula inicial.
+      const corregido = f.campo === 'domicilio' || f.campo === 'ciudad' ? nombrePropio(valor) : valor
+      persona[f.campo] = corregido || null
     }
     cambiosPersona.set(f.slot, persona)
   }

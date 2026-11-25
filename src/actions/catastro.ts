@@ -1,6 +1,6 @@
 'use server'
 
-import { textoError } from '@/lib/errores'
+import { mensajeValidacion, textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { obtenerContexto } from '@/lib/sesion'
@@ -66,7 +66,7 @@ export async function registrarFirmado(expedienteId: string, paso: number, ruta:
 export async function presentarEnCatastro(expedienteId: string, _prev: Respuesta | undefined, formData: FormData): Promise<Respuesta> {
   await obtenerContexto()
   const datos = z.object({ numero: z.string().trim().max(40), fecha }).safeParse(Object.fromEntries(formData))
-  if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: datos.error?.issues[0].message ?? 'Datos inválidos.' }
+  if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: (datos.error ? mensajeValidacion(datos.error) : 'Datos inválidos.') }
   const supabase = await createClient()
   const { error } = await supabase.rpc('registrar_presentacion', { p_case: expedienteId, p_numero: datos.data.numero, p_fecha: datos.data.fecha })
   if (error) return { error: textoError(error) }
@@ -77,7 +77,7 @@ export async function presentarEnCatastro(expedienteId: string, _prev: Respuesta
 export async function registrarObservacion(expedienteId: string, _prev: Respuesta | undefined, formData: FormData): Promise<Respuesta> {
   await obtenerContexto()
   const datos = z.object({ fecha, texto: z.string().trim().min(3, 'Escribí qué observó Catastro.').max(4000) }).safeParse(Object.fromEntries(formData))
-  if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: datos.error?.issues[0].message ?? 'Datos inválidos.' }
+  if (!datos.success || !uuid.safeParse(expedienteId).success) return { error: (datos.error ? mensajeValidacion(datos.error) : 'Datos inválidos.') }
   const supabase = await createClient()
   const { error } = await supabase.rpc('registrar_observacion', { p_case: expedienteId, p_recibida: datos.data.fecha, p_texto: datos.data.texto })
   if (error) return { error: textoError(error) }
