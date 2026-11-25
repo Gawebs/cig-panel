@@ -49,7 +49,7 @@ export async function expedienteExiste(expedienteId: string): Promise<boolean> {
  * confirmaron o transcribieron una respuesta, no se pierde por una sincronización vieja.
  */
 export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promise<{ error?: string; ok?: string }> {
-  await obtenerContexto()
+  const ctx = await obtenerContexto()
   const v = esquemaRelevamiento.safeParse(datos)
   if (!v.success) return { error: `Datos del relevamiento inválidos: ${v.error.issues[0].message}` }
   const d = v.data
@@ -60,12 +60,16 @@ export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promi
   const supabase = await createClient()
   const { data: previo } = await supabase
     .from('field_surveys')
-    .select('id, case_file_id, respuestas')
+    .select('id, case_file_id, respuestas, relevador')
     .eq('case_file_id', d.expedienteId)
     .maybeSingle()
-  if (previo && previo.id !== d.id) {
-    return { error: 'Este expediente ya tiene un relevamiento cargado desde otro equipo. Avisá en la oficina.' }
+  // Un relevamiento por expediente. Si ya hay uno con otro número pero es de la misma persona
+  // (por ejemplo, se empezó dos veces en el celular), lo del celular se guarda en ese mismo.
+  // Si es de otra persona, no se pisa.
+  if (previo && previo.id !== d.id && previo.relevador !== ctx.userId) {
+    return { error: 'Este expediente ya tiene un relevamiento cargado por otra persona. Avisá en la oficina.' }
   }
+  const idGuardado = previo?.id ?? d.id
 
   const anteriores = (previo?.respuestas ?? {}) as Record<string, RespuestaGuardada>
   const respuestas: Record<string, RespuestaGuardada> = {}
@@ -78,7 +82,7 @@ export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promi
   for (const [clave, r] of Object.entries(anteriores)) respuestas[clave] ??= r
 
   const fila = {
-    id: d.id,
+    id: idGuardado,
     case_file_id: d.expedienteId,
     estado: d.estado,
     gps_lat: d.gps?.lat ?? null,
@@ -89,11 +93,11 @@ export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promi
     observaciones: d.observaciones,
   }
   const { error } = previo
-    ? await supabase.from('field_surveys').update(fila).eq('id', d.id).select('id').single()
+    ? await supabase.from('field_surveys').update(fila).eq('id', idGuardado).select('id').single()
     : await supabase.from('field_surveys').insert(fila).select('id').single()
   if (error) return { error: `No se pudo guardar el relevamiento: ${textoError(error)} (${previo ? 'actualizar' : 'crear'}, código ${error.code ?? '?'})` }
 
-  const aviso = await aplicarRelevamiento(supabase, d.id)
+  const aviso = await aplicarRelevamiento(supabase, idGuardado)
   revalidatePath(`/expedientes/${d.expedienteId}`)
   return aviso ? { error: aviso } : { ok: 'Relevamiento guardado en el expediente.' }
 }
