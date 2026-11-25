@@ -8,6 +8,7 @@ export function AccionEstado(props: {
   hacia: string
   texto: string
   pideNota?: boolean
+  preguntaNota?: string
   principal?: boolean
   aviso?: string
 }) {
@@ -28,7 +29,7 @@ export function AccionEstado(props: {
       {props.aviso && <p className="text-sm text-aviso">{props.aviso}</p>}
       {props.pideNota && (
         <label className="grid gap-1.5">
-          <span className="text-sm font-semibold">¿Qué hay que corregir o qué observó Catastro?</span>
+          <span className="text-sm font-semibold">{props.preguntaNota ?? 'Nota'}</span>
           <textarea id={`nota-${props.hacia}`} name="nota" required rows={3} className="campo py-2" />
         </label>
       )}

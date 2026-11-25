@@ -62,15 +62,17 @@ export const ACCIONES: {
   texto: string
   roles: RolUsuario[]
   pideNota?: boolean
+  /** Pregunta que se muestra arriba de la nota. */
+  preguntaNota?: string
   principal?: boolean
 }[] = [
   { desde: ['en_armado', 'devuelto'], hacia: 'listo_para_revisar', texto: 'Enviar a revisión', roles: ['armado', 'subdireccion', 'direccion'], principal: true },
   { desde: ['listo_para_revisar'], hacia: 'aprobado', texto: 'Aprobar', roles: ['subdireccion', 'direccion'], principal: true },
-  { desde: ['listo_para_revisar', 'aprobado'], hacia: 'devuelto', texto: 'Devolver con nota', roles: ['subdireccion', 'direccion'], pideNota: true },
+  { desde: ['listo_para_revisar', 'aprobado'], hacia: 'devuelto', texto: 'Devolver con nota', roles: ['subdireccion', 'direccion'], pideNota: true, preguntaNota: '¿Qué hay que corregir en el expediente?' },
   { desde: ['aprobado'], hacia: 'firmado', texto: 'Marcar como firmado', roles: ['direccion'], principal: true },
   // Presentación, observación, prórroga y reingreso se registran en la sección "Firma y presentación en Catastro" de la ficha.
   { desde: ['presentado', 'reingresado', 'prorroga_pedida'], hacia: 'aceptado', texto: 'Catastro lo aceptó', roles: ['subdireccion', 'direccion'] },
-  { desde: ['en_armado', 'devuelto', 'listo_para_revisar', 'aprobado', 'firmado', 'presentado', 'observado', 'reingresado', 'prorroga_pedida'], hacia: 'desistido', texto: 'El vecino desistió', roles: ['subdireccion', 'direccion'], pideNota: true },
+  { desde: ['en_armado', 'devuelto', 'listo_para_revisar', 'aprobado', 'firmado', 'presentado', 'observado', 'reingresado', 'prorroga_pedida'], hacia: 'desistido', texto: 'El vecino desistió', roles: ['subdireccion', 'direccion'], pideNota: true, preguntaNota: '¿Por qué desistió el vecino?' },
 ]
 
 /** Estados de las constancias de tenencia precaria (los mismos del panel anterior). */

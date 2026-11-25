@@ -483,6 +483,7 @@ export default async function FichaExpediente({ params, searchParams }: { params
               hacia={a.hacia}
               texto={a.texto}
               pideNota={a.pideNota}
+              preguntaNota={a.preguntaNota}
               principal={a.principal}
               aviso={avisoDe(a.hacia)}
             />
