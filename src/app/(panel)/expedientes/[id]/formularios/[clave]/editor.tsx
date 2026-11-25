@@ -12,27 +12,65 @@ const ANCHO_PDF = 595.28
 const ALTO_PDF = 841.89
 const SOLO_LECTURA = new Set(['padron', 'localidad'])
 
+// El PDF original se baja una sola vez por pantalla y lo comparten todas sus hojas
+// (antes cada hoja lo bajaba de nuevo: con internet lenta tardaba muchísimo).
+type DocPdf = Awaited<ReturnType<typeof import('pdfjs-dist')['getDocument']>['promise']>
+const documentos = new Map<string, Promise<DocPdf>>()
+function documentoPdf(archivo: string): Promise<DocPdf> {
+  let p = documentos.get(archivo)
+  if (!p) {
+    p = import('pdfjs-dist').then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdf.worker.min.mjs'
+      return pdfjs.getDocument(archivo).promise
+    })
+    p.catch(() => documentos.delete(archivo)) // si falla, el próximo intento lo vuelve a bajar
+    documentos.set(archivo, p)
+  }
+  return p
+}
+
 /** Dibuja una página del PDF original en un canvas, al ancho del contenedor. */
 function PaginaPdf({ archivo, numero, ancho }: { archivo: string; numero: number; ancho: number }) {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando')
+  const [intento, setIntento] = useState(0)
   useEffect(() => {
     if (!ancho) return
     let cancelado = false
     ;(async () => {
-      const pdfjs = await import('pdfjs-dist')
-      pdfjs.GlobalWorkerOptions.workerSrc = '/vendor/pdf.worker.min.mjs'
-      const doc = await pdfjs.getDocument(archivo).promise
-      const pagina = await doc.getPage(numero + 1)
-      if (cancelado || !canvas.current) return
-      const ratio = window.devicePixelRatio || 1
-      const vista = pagina.getViewport({ scale: (ancho / ANCHO_PDF) * ratio })
-      canvas.current.width = vista.width
-      canvas.current.height = vista.height
-      await pagina.render({ canvasContext: canvas.current.getContext('2d')!, viewport: vista }).promise
+      try {
+        const doc = await documentoPdf(archivo)
+        const pagina = await doc.getPage(numero + 1)
+        if (cancelado || !canvas.current) return
+        const ratio = window.devicePixelRatio || 1
+        const vista = pagina.getViewport({ scale: (ancho / ANCHO_PDF) * ratio })
+        canvas.current.width = vista.width
+        canvas.current.height = vista.height
+        await pagina.render({ canvasContext: canvas.current.getContext('2d')!, viewport: vista }).promise
+        if (!cancelado) setEstado('listo')
+      } catch {
+        if (!cancelado) setEstado('error')
+      }
     })()
     return () => { cancelado = true }
-  }, [archivo, numero, ancho])
-  return <canvas ref={canvas} className="absolute inset-0 h-full w-full" aria-hidden />
+  }, [archivo, numero, ancho, intento])
+  return (
+    <>
+      <canvas ref={canvas} className="absolute inset-0 h-full w-full" aria-hidden />
+      {estado !== 'listo' && (
+        <div className="no-imprimir pointer-events-none absolute inset-x-0 top-6 flex justify-center">
+          {estado === 'cargando' ? (
+            <p className="rounded-full bg-azul-suave px-4 py-2 text-sm text-azul" role="status">Cargando el dibujo del formulario… (con internet lenta puede tardar)</p>
+          ) : (
+            <p className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-lg bg-error-suave px-4 py-2 text-sm text-error" role="alert">
+              No se pudo cargar el dibujo del formulario (revisá internet). Los datos se pueden cargar igual.
+              <button type="button" className="boton min-h-8 text-sm" onClick={() => { setEstado('cargando'); setIntento((n) => n + 1) }}>Reintentar</button>
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  )
 }
 
 export function EditorFormulario(props: {
