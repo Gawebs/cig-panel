@@ -158,7 +158,8 @@ export async function abrirExpediente(_prev: Resultado, formData: FormData): Pro
 
   revalidatePath('/')
   // La pantalla sube las fotos del DNI (si hay) y después navega a la ficha.
-  return { ok: 'Expediente abierto.', id: `${id}|${titular?.id ?? ''}|${ctx.municipio.id}|${conyuge.id ?? ''}` }
+  const { data: abierto } = await supabase.from('case_files').select('numero_interno').eq('id', id).single()
+  return { ok: 'Expediente abierto.', id: `${id}|${titular?.id ?? ''}|${ctx.municipio.id}|${conyuge.id ?? ''}|${abierto?.numero_interno ?? ''}` }
 }
 
 const esquemaPersona = z.object({

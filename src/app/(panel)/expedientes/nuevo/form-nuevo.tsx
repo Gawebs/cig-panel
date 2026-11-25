@@ -16,14 +16,66 @@ export type LeyOpcion = { id: string; nombre: string; nombreCorto: string; usaNo
 /** Para volver a esta pantalla con un expediente ya abierto y corregir lo cargado al principio. */
 export type Edicion = { expedienteId: string; titularId: string; municipioId: string; ley: string; valores: Record<string, string> }
 
-export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpcion[]; localidades?: { id: string; nombre: string }[]; edicion?: Edicion }) {
-  const [ley, setLey] = useState<string>(edicion?.ley ?? '')
+type Props = { leyes: LeyOpcion[]; localidades?: { id: string; nombre: string }[]; edicion?: Edicion }
+
+const CLAVE_BORRADOR = 'cig-borrador-expediente-nuevo'
+const VIGENCIA_BORRADOR = 7 * 24 * 60 * 60 * 1000
+type Borrador = { guardado: number; valores: Record<string, string> }
+
+function leerBorrador(): Borrador | null {
+  try {
+    const b = JSON.parse(localStorage.getItem(CLAVE_BORRADOR) ?? 'null') as Borrador | null
+    if (!b || Date.now() - b.guardado > VIGENCIA_BORRADOR) return null
+    // Solo vale la pena si hay algo escrito además de la ley.
+    return Object.entries(b.valores).some(([k, v]) => k !== 'ley' && k !== 'origen_datos' && v && v !== '{}') ? b : null
+  } catch {
+    return null
+  }
+}
+function borrarBorrador() {
+  try { localStorage.removeItem(CLAVE_BORRADOR) } catch { /* sin almacenamiento: no hay nada que borrar */ }
+}
+
+/**
+ * Pantalla de apertura. Mientras se carga a mano, lo escrito se guarda en esta computadora (borrador):
+ * si algo falla antes de guardar (se corta internet, se recarga la página, se publica una versión nueva),
+ * al volver se ofrece recuperarlo. Las fotos del DNI no entran en el borrador.
+ */
+export function FormNuevo(props: Props) {
+  const [borrador, setBorrador] = useState<Borrador | null>(null)
+  const [inicial, setInicial] = useState<Record<string, string> | undefined>()
+  const [vuelta, setVuelta] = useState(0)
+  useEffect(() => {
+    // Se lee después de montar: localStorage no existe en el servidor.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura única del almacenamiento del navegador
+    if (!props.edicion) setBorrador(leerBorrador())
+  }, [props.edicion])
+
+  return (
+    <>
+      {borrador && (
+        <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-aviso bg-aviso-suave px-4 py-3 text-aviso">
+          <p className="min-w-0 flex-1">
+            <strong>Hay datos cargados que no se llegaron a guardar</strong> ({new Date(borrador.guardado).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+            {borrador.valores.apellido ? `, ${borrador.valores.apellido} ${borrador.valores.nombre ?? ''}`.trimEnd() : ''}). Las fotos del DNI hay que volver a sacarlas.
+          </p>
+          <button type="button" className="boton-principal min-h-9 text-sm" onClick={() => { setInicial(borrador.valores); setVuelta((n) => n + 1); setBorrador(null) }}>Recuperar</button>
+          <button type="button" className="boton min-h-9 text-sm" onClick={() => { borrarBorrador(); setBorrador(null) }}>Descartar</button>
+        </div>
+      )}
+      <FormNuevoInterno key={vuelta} {...props} inicial={inicial} />
+    </>
+  )
+}
+
+function FormNuevoInterno({ leyes, localidades = [], edicion, inicial }: Props & { inicial?: Record<string, string> }) {
+  const [ley, setLey] = useState<string>(edicion?.ley ?? inicial?.ley ?? '')
   const [estado, accion, enviando] = useActionState(
     edicion ? corregirDatosIniciales.bind(null, edicion.expedienteId, edicion.titularId) : abrirExpediente,
     undefined,
   )
   const elegida = leyes.find((l) => l.id === ley)
-  const v = estado?.valores ?? edicion?.valores ?? {}
+  const v = estado?.valores ?? edicion?.valores ?? inicial ?? {}
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const fotosDni = useRef<{ frente?: File; dorso?: File }>({})
@@ -62,9 +114,28 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
     }))
   }
 
+  // Borrador: lo escrito se guarda en esta computadora mientras se carga (solo al abrir, no al corregir).
+  const reloj = useRef<number | undefined>(undefined)
+  const guardarBorrador = () => {
+    if (edicion) return
+    window.clearTimeout(reloj.current)
+    reloj.current = window.setTimeout(() => {
+      const form = formRef.current
+      if (!form) return
+      const valores: Record<string, string> = {}
+      for (const [k, val] of new FormData(form)) if (typeof val === 'string') valores[k] = val
+      try { localStorage.setItem(CLAVE_BORRADOR, JSON.stringify({ guardado: Date.now(), valores })) } catch { /* sin almacenamiento: no hay borrador */ }
+    }, 400)
+  }
+  const montado = useRef(true)
+  useEffect(() => () => { montado.current = false; window.clearTimeout(reloj.current) }, [])
+
   // Guardado: se suben las fotos del DNI del titular y del cónyuge (cada una a su persona) y se sigue al paso 2.
   useEffect(() => {
     if (!estado?.ok || !estado.id) return
+    window.clearTimeout(reloj.current)
+    borrarBorrador()
+    window.scrollTo({ top: 0, behavior: 'smooth' }) // el aviso de "Expediente abierto" queda a la vista
     const [expedienteId, titularId, municipioDeApertura, conyugeId] = estado.id.split('|')
     const municipioId = municipioDeApertura || edicion?.municipioId || ''
     const deTitular = [fotosDni.current.frente, fotosDni.current.dorso].filter(Boolean) as File[]
@@ -73,7 +144,13 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
       ...(deTitular.length && titularId ? [{ personaId: titularId, paginas: deTitular }] : []),
       ...(deConyuge.length && conyugeId ? [{ personaId: conyugeId, paginas: deConyuge }] : []),
     ]
-    const ir = () => router.push(`/expedientes/${expedienteId}/formularios/solicitud`)
+    const destino = `/expedientes/${expedienteId}/formularios/solicitud`
+    // Si el paso a la pantalla siguiente no ocurre (por ejemplo, porque justo se publicó una versión nueva),
+    // se abre igual con una carga completa de la página.
+    const ir = () => {
+      router.push(destino)
+      window.setTimeout(() => { if (montado.current) window.location.assign(destino) }, 4000)
+    }
     if (subidas.length === 0) return ir()
     setAviso('Cargando las fotos del DNI…')
     Promise.all(subidas.map((s) => subirDocumento({ expedienteId, municipioId, paso: 1, requisito: 'dni', ...s })))
@@ -81,8 +158,23 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
       .catch(() => { setAviso('Los datos se guardaron, pero no se pudieron cargar las fotos del DNI. Cargalas desde la ficha.'); setTimeout(ir, 2500) })
   }, [estado, router, edicion])
 
+  // Expediente abierto: nunca se vuelve a mostrar el formulario vacío.
+  if (estado?.ok && estado.id && !edicion) {
+    const [expedienteId, , , , numero] = estado.id.split('|')
+    return (
+      <section role="status" className="tarjeta grid gap-3 border-ok p-6">
+        <h2 className="text-2xl text-ok">✓ Expediente {numero || ''} abierto</h2>
+        <p>Todo lo cargado quedó guardado. {aviso || 'Pasando al paso 2…'}</p>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/expedientes/${expedienteId}/formularios/solicitud`} className="boton-principal">Seguir al paso 2</Link>
+          <Link href={`/expedientes/${expedienteId}`} className="boton">Ver la ficha</Link>
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <form ref={formRef} action={accion} className="grid gap-5">
+    <form ref={formRef} action={accion} onInput={guardarBorrador} onChange={guardarBorrador} className="grid gap-5">
       <input type="hidden" name="sexo" value={leido.sexo} />
       <input type="hidden" name="fecha_nacimiento" value={leido.fecha_nacimiento} />
       <input type="hidden" name="origen_datos" value={JSON.stringify(origen)} />
