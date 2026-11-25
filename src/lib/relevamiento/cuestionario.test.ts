@@ -90,3 +90,16 @@ describe('cuestionario', () => {
     expect(separarNombre('Juan Carlos Pérez')).toEqual({ nombre: 'Juan Carlos', apellido: 'Pérez' })
   })
 })
+
+describe('aviso cuando una respuesta no se pasa a la ficha', () => {
+  it('cada tipo de pregunta tiene su aviso; las de opciones no son un error', async () => {
+    const { avisoNoEntendido, interpretar, preguntaPorClave } = await import('./cuestionario')
+    const mejoras = preguntaPorClave('casa.mejoras')!
+    expect(interpretar(mejoras, 'Mampostería').muestra).toBe('')
+    const aviso = avisoNoEntendido(mejoras)
+    expect(aviso.grave).toBe(false)
+    expect(aviso.texto).not.toMatch(/2005/)
+    expect(aviso.texto).toMatch(/revoque/)
+    expect(avisoNoEntendido(preguntaPorClave('casa.desde')!).texto).toMatch(/fecha/)
+  })
+})

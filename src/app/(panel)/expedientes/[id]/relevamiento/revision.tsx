@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { guardarRespuesta } from '@/actions/relevamiento'
 import type { RespuestaGuardada } from '@/lib/relevamiento/aplicar'
-import { interpretar, preguntaPorClave } from '@/lib/relevamiento/cuestionario'
+import { avisoNoEntendido, interpretar, preguntaPorClave } from '@/lib/relevamiento/cuestionario'
 import { transcribir } from '@/lib/voz/transcribir'
 
 /**
@@ -152,7 +152,10 @@ function Respuesta(props: {
       {interpretado && (
         interpretado.muestra
           ? <p className="text-sm text-ok">Va a la ficha como: <strong>{interpretado.muestra}</strong></p>
-          : <p className="text-sm text-aviso">No se entiende el dato: escribilo más claro (por ejemplo “marzo de 2005”).</p>
+          : (() => {
+              const aviso = avisoNoEntendido(preguntaPorClave(props.clave)!)
+              return <p className={`text-sm ${aviso.grave ? 'text-aviso' : 'text-tenue'}`}>{aviso.texto}</p>
+            })()
       )}
       {error && <p className="text-sm text-error">{error}</p>}
       {props.editable && (cambiado || (r && r.origen === 'voz' && !r.revisado && r.texto)) && (

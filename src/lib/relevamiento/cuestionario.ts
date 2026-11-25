@@ -290,6 +290,30 @@ export function interpretar(pregunta: Pregunta, texto: string, hoy = new Date())
   }
 }
 
+/**
+ * Qué decir cuando una respuesta no se pudo pasar a un dato de la ficha, según el tipo de pregunta.
+ * La respuesta igual queda guardada como se escribió.
+ */
+export function avisoNoEntendido(pregunta: Pregunta): { texto: string; grave: boolean } {
+  switch (pregunta.tipo) {
+    case 'fecha':
+      return { texto: 'No se entiende la fecha: escribila más clara (por ejemplo “marzo de 2005” o “2005”).', grave: true }
+    case 'telefono':
+      return { texto: 'No se entiende el teléfono: escribilo con la característica (por ejemplo 381 555 1234).', grave: true }
+    case 'edad':
+      return { texto: 'No se entiende la edad: escribí solo el número de años.', grave: true }
+    case 'si_no':
+      return { texto: 'No se entiende si es sí o no: escribí “sí” o “no”.', grave: true }
+    case 'opcion':
+    case 'varias': {
+      const lista = (pregunta.opciones ?? []).map((o) => o.etiqueta.toLowerCase()).join(', ')
+      return { texto: `No coincide con las opciones de la ficha (${lista}): queda guardada como la escribiste. Si hace falta, marcala en “Lo que se ve”.`, grave: false }
+    }
+    default:
+      return { texto: 'No se pudo pasar a la ficha: queda guardada como la escribiste.', grave: false }
+  }
+}
+
 /** Separa "Juan Carlos Pérez" en nombre y apellido: el apellido es la última palabra. Se revisa a mano. */
 export function separarNombre(completo: string): { nombre: string; apellido: string } {
   const partes = completo.trim().split(/\s+/).filter(Boolean)
