@@ -2,7 +2,7 @@
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { quitarDocumentoPorRuta } from '@/actions/documentos'
-import { guardarRelevamiento } from '@/actions/relevamiento'
+import { expedienteExiste, guardarRelevamiento } from '@/actions/relevamiento'
 import { createClient } from '@/lib/supabase/client'
 import { subirDocumento } from '@/lib/subida'
 import {
@@ -42,6 +42,8 @@ export async function pdfCoordenadas(p: { numero: string; lat: number; lng: numb
 export interface ResultadoSincronizacion {
   ok: boolean
   mensaje: string
+  /** El expediente ya no existe (se borró): lo del celular no se puede subir. */
+  expedienteBorrado?: boolean
 }
 
 /** Sube un relevamiento: audios, fotos, croquis y coordenadas como PDF, y las respuestas a la ficha. */
@@ -50,6 +52,9 @@ export async function sincronizarRelevamiento(r: RelevamientoCampo, numero: stri
   const supabase = createClient()
   const { data: sesion } = await supabase.auth.getSession()
   if (!sesion.session) return { ok: false, mensaje: 'La sesión venció. Volvé a ingresar con tu usuario para subir lo relevado.' }
+  if (!(await expedienteExiste(r.expedienteId))) {
+    return { ok: false, expedienteBorrado: true, mensaje: 'el expediente de este relevamiento ya no existe en el sistema (se borró).' }
+  }
 
   const base = { expedienteId: r.expedienteId, municipioId: r.municipioId }
   const rutasAudio: Record<string, string> = {}
@@ -137,21 +142,34 @@ function esFaltaDeConexion(e: unknown) {
   return /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test(m)
 }
 
-/** Sube todo lo pendiente. Se llama al volver la señal y con el botón "Subir ahora". */
-export async function sincronizarPendientes(numeros: Record<string, string>): Promise<{ subidos: number; errores: string[]; sinConexion: boolean }> {
+type ResultadoPendientes = { subidos: number; errores: string[]; sinConexion: boolean; borrados: string[] }
+let enCurso: Promise<ResultadoPendientes> | null = null
+
+/**
+ * Sube todo lo pendiente. Se llama al volver la señal y con el botón "Subir ahora".
+ * Una sola subida a la vez: si ya hay una en marcha, se espera esa (dos a la vez subían las fotos repetidas).
+ */
+export function sincronizarPendientes(numeros: Record<string, string>): Promise<ResultadoPendientes> {
+  enCurso ??= subirPendientes(numeros).finally(() => { enCurso = null })
+  return enCurso
+}
+
+async function subirPendientes(numeros: Record<string, string>): Promise<ResultadoPendientes> {
   const lista = (await listarRelevamientos()).filter(estaPendiente)
   const errores: string[] = []
+  const borrados: string[] = []
   let subidos = 0
   for (const r of lista) {
     try {
       const res = await sincronizarRelevamiento(r, numeros[r.expedienteId] ?? '')
       if (res.ok) subidos++
+      else if (res.expedienteBorrado) borrados.push(r.id)
       else errores.push(`${numeros[r.expedienteId] ?? 'Expediente'}: ${res.mensaje}`)
     } catch (e) {
       // Sin conexión no es un error: queda guardado y se sube en el próximo intento.
-      if (esFaltaDeConexion(e)) return { subidos, errores, sinConexion: true }
+      if (esFaltaDeConexion(e)) return { subidos, errores, sinConexion: true, borrados }
       errores.push(`${numeros[r.expedienteId] ?? 'Expediente'}: ${e instanceof Error ? e.message : 'error al subir'}`)
     }
   }
-  return { subidos, errores, sinConexion: false }
+  return { subidos, errores, sinConexion: false, borrados }
 }

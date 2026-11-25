@@ -179,6 +179,15 @@ export async function marcarSincronizado(id: string, hasta: number, mutar: (r: R
   await promesa((await almacen('relevamientos', 'readwrite')).put({ ...mutar(actual), sincronizado: hasta }))
 }
 
+/** Quita del celular un relevamiento y sus fotos, croquis y audios (solo para expedientes que ya no existen). */
+export async function borrarRelevamiento(id: string): Promise<void> {
+  const r = await promesa<RelevamientoCampo | undefined>((await almacen('relevamientos')).get(id))
+  if (!r) return
+  const archivos = [...Object.values(r.respuestas).map((x) => x.audioId), ...Object.values(r.fotos), r.croquisId].filter(Boolean) as string[]
+  for (const a of archivos) await promesa((await almacen('archivos', 'readwrite')).delete(a))
+  await promesa((await almacen('relevamientos', 'readwrite')).delete(id))
+}
+
 export async function listarRelevamientos(): Promise<RelevamientoCampo[]> {
   return promesa((await almacen('relevamientos')).getAll())
 }

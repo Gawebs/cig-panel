@@ -4,6 +4,7 @@ import { textoError } from '@/lib/errores'
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
+  borrarRelevamiento,
   estaPendiente, guardarExpedientes, listarExpedientes, listarRelevamientos, pedirAlmacenamientoPersistente,
   type ExpedienteCampo, type RelevamientoCampo,
 } from '@/lib/campo/almacen'
@@ -74,6 +75,8 @@ export function AppCampo() {
   const [elegido, setElegido] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error' | 'info'; texto: string } | null>(null)
+  // Relevamientos guardados en el celular de expedientes que ya no existen (se borraron).
+  const [borrados, setBorrados] = useState<string[]>([])
   const [sinSesion, setSinSesion] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [cargado, setCargado] = useState(false)
@@ -93,7 +96,8 @@ export function AppCampo() {
     setAviso({ tipo: 'info', texto: `Subiendo ${pendientes.length === 1 ? 'un relevamiento' : `${pendientes.length} relevamientos`}…` })
     try {
       const nums = Object.fromEntries((await listarExpedientes()).map((e) => [e.id, e.numero]))
-      const { subidos, errores, sinConexion } = await sincronizarPendientes(nums)
+      const { subidos, errores, sinConexion, borrados: deBorrados } = await sincronizarPendientes(nums)
+      setBorrados(deBorrados)
       if (sinConexion) setAviso({ tipo: 'info', texto: 'No hay conexión con el servidor. Lo relevado queda guardado en el celular y se sube cuando vuelva la señal.' })
       else if (errores.length) setAviso({ tipo: 'error', texto: errores.join(' · ') })
       else if (subidos) setAviso({ tipo: 'ok', texto: subidos === 1 ? 'Relevamiento subido al expediente.' : `${subidos} relevamientos subidos.` })
@@ -183,6 +187,26 @@ export function AppCampo() {
           >
             {aviso.texto}
           </p>
+        )}
+        {borrados.length > 0 && (
+          <div role="alert" className="mb-3 grid gap-2 rounded-lg bg-aviso-suave px-3 py-2 text-sm text-aviso">
+            <p>
+              <strong>{borrados.length === 1 ? 'Hay un relevamiento' : `Hay ${borrados.length} relevamientos`} en este celular de un expediente que ya no existe</strong> (se borró del sistema, por ejemplo uno de prueba).
+              No se puede subir. Si no lo necesitás, descartalo.
+            </p>
+            <button
+              type="button"
+              className="boton min-h-9 w-fit text-sm"
+              onClick={async () => {
+                for (const id of borrados) await borrarRelevamiento(id)
+                setBorrados([])
+                setAviso({ tipo: 'ok', texto: 'Listo: se quitó del celular.' })
+                await recargarLocal()
+              }}
+            >
+              Descartar
+            </button>
+          </div>
         )}
         {sinSesion && (
           <p className="mb-3 rounded-lg bg-aviso-suave px-3 py-2 text-sm">

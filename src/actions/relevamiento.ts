@@ -33,6 +33,18 @@ const esquemaRelevamiento = z.object({
 export type RelevamientoParaGuardar = z.input<typeof esquemaRelevamiento>
 
 /**
+ * Antes de subir lo relevado: ¿el expediente sigue existiendo (y este usuario lo ve)?
+ * Si se borró (por ejemplo, uno de prueba), lo que quedó en el celular no se puede subir.
+ */
+export async function expedienteExiste(expedienteId: string): Promise<boolean> {
+  await obtenerContexto()
+  if (!z.string().uuid().safeParse(expedienteId).success) return false
+  const supabase = await createClient()
+  const { data } = await supabase.from('case_files').select('id').eq('id', expedienteId).maybeSingle()
+  return Boolean(data)
+}
+
+/**
  * Lo que llega del celular. Se combina con lo que ya hay en la base: si en la oficina ya
  * confirmaron o transcribieron una respuesta, no se pierde por una sincronización vieja.
  */
