@@ -9,6 +9,7 @@ import { CargaDocumento } from '@/components/carga-documento'
 import { DescargaPaso } from '@/components/descarga-paso'
 import { VistaPreviaPaso, type EntradaVista, type ParteVista } from '@/components/vista-previa-paso'
 import { AccionEstado } from './accion-estado'
+import { AvanceRelevamiento } from '@/components/avance-relevamiento'
 import { datosFaltantes, type DondeSeCarga, type ExpedienteDatos, type PersonaDatos } from '@/lib/datos-obligatorios'
 import { FormInmueble } from './form-inmueble'
 import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
@@ -57,7 +58,7 @@ export default async function FichaExpediente({ params, searchParams }: { params
     supabase.from('case_documents').select('id, paso, requisito, person_id, anio, firmado, nombre_archivo, paginas, tipo_prueba, created_at').eq('case_file_id', id).order('created_at'),
     supabase.from('case_events').select('id, tipo, de_estado, a_estado, nota, created_at, profiles(nombre)').eq('case_file_id', id).order('created_at', { ascending: false }),
     supabase.from('neighborhoods').select('id, nombre').eq('municipality_id', exp.municipality_id).order('nombre'),
-    supabase.from('field_surveys').select('estado, fecha, respuestas').eq('case_file_id', id).maybeSingle(),
+    supabase.from('field_surveys').select('estado, fecha, respuestas, observaciones, gps_lat, gps_lng, gps_precision_m, profiles(nombre)').eq('case_file_id', id).maybeSingle(),
   ])
   const { data: observaciones } = await supabase
     .from('catastro_observations')
@@ -76,6 +77,8 @@ export default async function FichaExpediente({ params, searchParams }: { params
     .filter((p) => p?.activo && p.nombre)
     .map((p) => p!.nombre!)
   const supervision = nombresSupervision.length ? nombresSupervision.join(' o ') : 'la Subdirección'
+  // Último documento subido de un tipo (fotos del inmueble, croquis).
+  const ultimoDoc = (requisito: string) => (documentos ?? []).filter((d) => d.requisito === requisito).at(-1)?.id ?? null
   const respuestasRel = Object.values((relevamiento?.respuestas ?? {}) as Record<string, { texto: string; origen: string; revisado?: boolean }>)
   const porRevisar = respuestasRel.filter((r) => r.origen === 'voz' && !r.revisado).length
 
@@ -372,18 +375,21 @@ export default async function FichaExpediente({ params, searchParams }: { params
           )}
           {pdfActual === 4 && (
             <section className="rounded-lg border border-linea p-4">
-              <h4 className="font-semibold">Relevamiento en el lugar</h4>
-              {relevamiento ? (
-                <>
-                  <p className="mt-1 text-sm">
-                    {relevamiento.estado === 'en_curso' ? 'Empezado' : 'Terminado'} el {new Date(`${relevamiento.fecha}T12:00:00`).toLocaleDateString('es-AR')} · {respuestasRel.length} respuestas
-                  </p>
-                  {porRevisar > 0 && <p className="mt-1 text-sm font-semibold text-aviso">{porRevisar} {porRevisar === 1 ? 'respuesta grabada' : 'respuestas grabadas'} para revisar</p>}
-                  <Link href={`/expedientes/${id}/relevamiento`} className="mt-2 inline-block text-sm font-semibold text-azul hover:underline">Escuchar y revisar las respuestas →</Link>
-                </>
-              ) : (
-                <p className="mt-1 text-sm text-tenue">Todavía no se hizo la visita. El relevador la carga desde el celular, en la aplicación de relevamiento.</p>
-              )}
+              <h4 className="mb-2 font-semibold">Relevamiento en el lugar: lo que cargó el relevador</h4>
+              <AvanceRelevamiento
+                expedienteId={id}
+                ley={exp.framework_id}
+                relevamiento={relevamiento ? {
+                  ...relevamiento,
+                  relevador: (relevamiento.profiles as unknown as { nombre: string } | null)?.nombre,
+                  respuestas: relevamiento.respuestas as Record<string, { texto?: string }>,
+                  observaciones: (relevamiento.observaciones ?? {}) as Record<string, unknown>,
+                } : null}
+                fotos={ultimoDoc('fotos_inmueble')}
+                croquis={ultimoDoc('croquis')}
+              />
+              {porRevisar > 0 && <p className="mt-2 text-sm font-semibold text-aviso">{porRevisar} {porRevisar === 1 ? 'respuesta grabada' : 'respuestas grabadas'} para revisar</p>}
+              {relevamiento && <Link href={`/expedientes/${id}/relevamiento`} className="mt-2 inline-block text-sm font-semibold text-azul hover:underline">Ver todo el relevamiento y revisar las respuestas →</Link>}
             </section>
           )}
 

@@ -77,6 +77,12 @@ export function AppCampo() {
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error' | 'info'; texto: string } | null>(null)
   // Relevamientos guardados en el celular de expedientes que ya no existen (se borraron).
   const [borrados, setBorrados] = useState<string[]>([])
+  // En una computadora (mouse y pantalla ancha) esta app muestra lo guardado en esa computadora, no lo del relevador.
+  const [enCompu, setEnCompu] = useState(false)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- se mide una vez, solo existe en el navegador
+    setEnCompu(window.matchMedia('(pointer: fine) and (min-width: 900px)').matches)
+  }, [])
   const [sinSesion, setSinSesion] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [cargado, setCargado] = useState(false)
@@ -187,6 +193,17 @@ export function AppCampo() {
           >
             {aviso.texto}
           </p>
+        )}
+        {enCompu && (
+          <div role="note" className="mb-3 grid gap-1 rounded-lg border border-azul bg-azul-suave px-3 py-2 text-sm text-azul">
+            <p>
+              <strong>Esta es la aplicación del celular.</strong> En esta computadora se ve solo lo que se cargó en esta computadora, no lo que hizo el relevador en la calle.
+              El relevamiento se hace desde el celular.
+            </p>
+            <a href={elegido ? `/expedientes/${elegido}/relevamiento` : '/expedientes'} className="w-fit font-semibold underline">
+              {elegido ? 'Ver lo que cargó el relevador en este expediente →' : 'Ir a los expedientes para ver lo que cargó el relevador →'}
+            </a>
+          </div>
         )}
         {borrados.length > 0 && (
           <div role="alert" className="mb-3 grid gap-2 rounded-lg bg-aviso-suave px-3 py-2 text-sm text-aviso">

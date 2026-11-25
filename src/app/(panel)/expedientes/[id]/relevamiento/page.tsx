@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { cuestionario } from '@/lib/relevamiento/cuestionario'
 import type { RespuestaGuardada } from '@/lib/relevamiento/aplicar'
 import { RevisionRespuestas } from './revision'
+import { AvanceRelevamiento } from '@/components/avance-relevamiento'
 
 const EDITABLES = ['en_armado', 'devuelto', 'listo_para_revisar', 'observado']
 
@@ -13,10 +14,12 @@ export default async function RevisarRelevamiento({ params }: { params: Promise<
   const ctx = await obtenerContexto()
   const supabase = await createClient()
 
-  const [{ data: exp }, { data: rel }] = await Promise.all([
+  const [{ data: exp }, { data: rel }, { data: docs }] = await Promise.all([
     supabase.from('case_files').select('id, numero_interno, framework_id, estado').eq('id', id).maybeSingle(),
     supabase.from('field_surveys').select('id, estado, fecha, gps_lat, gps_lng, gps_precision_m, respuestas, observaciones, profiles(nombre)').eq('case_file_id', id).maybeSingle(),
+    supabase.from('case_documents').select('id, requisito').eq('case_file_id', id).in('requisito', ['fotos_inmueble', 'croquis']).order('created_at'),
   ])
+  const ultimoDoc = (requisito: string) => (docs ?? []).filter((d) => d.requisito === requisito).at(-1)?.id ?? null
   if (!exp) notFound()
 
   const volver = <Link href={`/expedientes/${id}`} className="text-sm text-azul hover:underline">← {exp.numero_interno}</Link>
@@ -25,9 +28,9 @@ export default async function RevisarRelevamiento({ params }: { params: Promise<
       <div className="grid max-w-2xl gap-4">
         {volver}
         <h1 className="text-3xl">Relevamiento</h1>
-        <p className="tarjeta p-5 text-tenue">
-          Todavía no se hizo la visita. El relevador lo carga desde el celular, en la aplicación de relevamiento (<span className="font-semibold">/campo</span>), con o sin señal.
-        </p>
+        <section className="tarjeta p-5">
+          <AvanceRelevamiento expedienteId={id} ley={exp.framework_id} relevamiento={null} fotos={ultimoDoc('fotos_inmueble')} croquis={ultimoDoc('croquis')} />
+        </section>
       </div>
     )
   }
@@ -55,6 +58,16 @@ export default async function RevisarRelevamiento({ params }: { params: Promise<
           {rel.gps_lat !== null ? ` · GPS ${Number(rel.gps_lat).toFixed(6)},${Number(rel.gps_lng).toFixed(6)}${Number(rel.gps_precision_m) === 0 ? " (escrita a mano)" : ` (±${Math.round(rel.gps_precision_m ?? 0)} m)`}` : ''}
         </p>
       </div>
+      <section className="tarjeta p-5">
+        <h2 className="mb-3 text-lg">Avance en el lugar</h2>
+        <AvanceRelevamiento
+          expedienteId={id}
+          ley={exp.framework_id}
+          relevamiento={{ ...rel, relevador, respuestas: respuestas as Record<string, { texto?: string }>, observaciones: (rel.observaciones ?? {}) as Record<string, unknown> }}
+          fotos={ultimoDoc('fotos_inmueble')}
+          croquis={ultimoDoc('croquis')}
+        />
+      </section>
       <RevisionRespuestas
         relevamientoId={rel.id}
         preguntas={preguntas.map((p) => ({ clave: p.clave, texto: p.texto }))}
