@@ -41,7 +41,7 @@ export function BloqueConyuge({ valores, alFotos }: {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1.5"><span className="text-sm font-semibold">Apellido</span><input name="c_apellido" value={d.apellido} onChange={cambiar('apellido')} className="campo" /></label>
         <label className="grid gap-1.5"><span className="text-sm font-semibold">Nombre</span><input name="c_nombre" value={d.nombre} onChange={cambiar('nombre')} className="campo" /></label>
-        <label className="grid gap-1.5"><span className="text-sm font-semibold">DNI</span><input name="c_dni" value={d.dni} onChange={cambiar('dni')} inputMode="numeric" placeholder="Sin puntos" className="campo" /></label>
+        <label className="grid gap-1.5"><span className="text-sm font-semibold">DNI</span><input name="c_dni" value={d.dni} onChange={cambiar('dni')} inputMode="numeric" placeholder="Ej.: 28.123.456" className="campo" /></label>
         <label className="grid gap-1.5"><span className="text-sm font-semibold">CUIL</span><input name="c_cuil" value={d.cuil} onChange={cambiar('cuil')} inputMode="numeric" placeholder="27-12345678-3" className="campo" /></label>
         <label className="grid gap-1.5"><span className="text-sm font-semibold">Teléfono</span><input name="c_telefono" defaultValue={valores.c_telefono} inputMode="tel" className="campo" /></label>
       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { calcularCuil, extraerDomicilio, interpretarCodigoDni, separarDomicilio, type DatosDni } from '@/lib/dni'
+import { calcularCuil, extraerDomicilio, formatoDni, interpretarCodigoDni, separarDomicilio, type DatosDni } from '@/lib/dni'
 import { leerCodigoDni, leerCodigoEnCanvas, leerTexto } from '@/lib/escaneo'
 import { CamaraGuiada, type Validacion } from '@/components/camara-guiada'
 
@@ -62,7 +62,7 @@ export function LectorDni({ onLectura, onFotos }: {
     guardarFoto('frente', comoArchivo(foto, 'dni-frente.jpg'))
     const cuil = calcularCuil(datos.dni, datos.sexo)
     onLectura({ ...datos, cuil })
-    setEstadoFrente(`Leído: ${datos.apellido}, ${datos.nombre} · DNI ${datos.dni}. CUIL calculado ${cuil}: confirmalo con la constancia.`)
+    setEstadoFrente(`Leído: ${datos.apellido}, ${datos.nombre} · DNI ${formatoDni(datos.dni)}. CUIL calculado ${cuil}: confirmalo con la constancia.`)
   }
 
   const alLeerDorso = (foto: Blob, domicilio: string | undefined) => {

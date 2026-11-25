@@ -31,7 +31,7 @@ export function FormConstancia(props: {
       <fieldset disabled={!props.editable} className="grid gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
           {campo('vecino_nombre', 'Apellido y nombre del vecino', { required: true })}
-          {campo('dni', 'DNI', { inputMode: 'numeric', placeholder: 'Sin puntos' })}
+          {campo('dni', 'DNI', { inputMode: 'numeric', placeholder: 'Ej.: 28.123.456' })}
           {campo('domicilio', 'Domicilio')}
           <label className="grid gap-1">
             <span className="text-sm font-semibold">Barrio</span>

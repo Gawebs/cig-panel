@@ -1,3 +1,4 @@
+import { formatoDni } from '@/lib/dni'
 import Link from 'next/link'
 import { obtenerContexto, tieneRol } from '@/lib/sesion'
 import { createClient } from '@/lib/supabase/server'
@@ -79,7 +80,7 @@ export default async function Constancias({ searchParams }: { searchParams: Prom
               return (
                 <tr key={c.id} className="hover:bg-fondo">
                   <td className="px-4 py-3 font-semibold tabular-nums"><Link href={`/constancias/${c.id}`} className="text-azul hover:underline">{c.numero}</Link></td>
-                  <td className="px-4 py-3">{c.vecino_nombre}{c.dni ? <span className="block text-sm text-tenue">DNI {c.dni}</span> : null}</td>
+                  <td className="px-4 py-3">{c.vecino_nombre}{c.dni ? <span className="block text-sm text-tenue">DNI {formatoDni(c.dni)}</span> : null}</td>
                   <td className="px-4 py-3 text-sm">{[c.domicilio, c.barrio].filter(Boolean).join(' · ') || '—'}</td>
                   <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${TONOS[e.tono]}`}>{e.texto}</span></td>
                   <td className="px-4 py-3 text-sm">{conArchivos(c) ? 'Sí' : '—'}</td>

@@ -90,3 +90,20 @@ describe('separarDomicilio', () => {
     expect(separarDomicilio('SIN DATOS')).toEqual({ calle: 'SIN DATOS', ciudad: null })
   })
 })
+
+describe('formato de DNI y CUIL', () => {
+  it('DNI con puntos para mostrar', async () => {
+    const { formatoDni } = await import('./dni')
+    expect(formatoDni('28123456')).toBe('28.123.456')
+    expect(formatoDni('5123456')).toBe('5.123.456')
+    expect(formatoDni('28.123.456')).toBe('28.123.456')
+    expect(formatoDni(null)).toBe('')
+  })
+  it('CUIL con guiones, venga como venga', async () => {
+    const { normalizarCuil } = await import('./dni')
+    expect(normalizarCuil('20123456783')).toBe('20-12345678-3')
+    expect(normalizarCuil('20 12345678 3')).toBe('20-12345678-3')
+    expect(normalizarCuil('20.12345678.3')).toBe('20-12345678-3')
+    expect(normalizarCuil('27-5123456-4')).toBe('27-5123456-4')
+  })
+})

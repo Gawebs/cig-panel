@@ -2,6 +2,7 @@
 
 import { mensajeValidacion, textoError } from '@/lib/errores'
 import { nombrePropio, oracion, soloNumeros } from '@/lib/ortografia'
+import { normalizarCuil } from '@/lib/dni'
 import { completarBarrioDeLaLey } from '@/lib/barrio-ley'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -87,8 +88,8 @@ const esquemaApertura = z.object({
   padron: opcional(20),
   padron_confirmacion: opcional(20),
   // CUIL y domicilio: se completan solos al escanear el DNI, o a mano
-  cuil: opcional(13)
-    .transform((v) => (v && /^\d{11}$/.test(v) ? `${v.slice(0, 2)}-${v.slice(2, 10)}-${v.slice(10)}` : v))
+  cuil: opcional(20)
+    .transform((v) => (v ? normalizarCuil(v) : v))
     .refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
   telefono: opcional(30),
   correo: opcional(120).refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), 'El correo no es válido: revisalo (ejemplo: nombre@gmail.com).'),
@@ -167,7 +168,7 @@ const esquemaPersona = z.object({
   apellido: texto().min(1, 'Falta el apellido.').transform(nombrePropio),
   nombre: texto().transform(nombrePropio),
   dni: dniCampo,
-  cuil: opcional(13).refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
+  cuil: opcional(20).transform((v) => (v ? normalizarCuil(v) : v)).refine((v) => !v || /^\d{2}-\d{7,8}-\d$/.test(v), 'El CUIL va con guiones: 20-12345678-3.'),
   telefono: opcional(30),
   correo: opcional(120).refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), 'El correo no es válido: revisalo (ejemplo: nombre@gmail.com).'),
   domicilio: propio(160),

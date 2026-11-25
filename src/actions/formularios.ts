@@ -1,6 +1,7 @@
 'use server'
 
 import { nombrePropio, oracion, soloNumeros } from '@/lib/ortografia'
+import { normalizarCuil } from '@/lib/dni'
 import { textoError } from '@/lib/errores'
 import { revalidatePath } from 'next/cache'
 import { obtenerContexto } from '@/lib/sesion'
@@ -159,7 +160,7 @@ export async function guardarFormulario(
       persona.dni = valor || null
     } else if (f.campo === 'cuil') {
       // Si lo escriben sin guiones, se los ponemos.
-      if (/^\d{11}$/.test(valor)) valor = `${valor.slice(0, 2)}-${valor.slice(2, 10)}-${valor.slice(10)}`
+      if (valor) valor = normalizarCuil(valor)
       if (valor && !/^\d{2}-\d{7,8}-\d$/.test(valor)) return { error: `${campo.etiqueta}: va con guiones, 20-12345678-3.` }
       persona.cuil = valor || null
     } else if (f.campo === 'estado_civil') {

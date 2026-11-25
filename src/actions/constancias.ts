@@ -15,7 +15,7 @@ const opcional = (max = 160) => z.string().trim().max(max).optional().transform(
 
 const esquema = z.object({
   vecino_nombre: z.string().trim().min(2, 'Falta el nombre del vecino.').max(160),
-  dni: opcional(8).refine((v) => !v || /^\d{7,8}$/.test(v), 'El DNI tiene que tener 7 u 8 números, sin puntos.'),
+  dni: opcional(12).transform((v) => (v ? v.replace(/[\s.\-]/g, '') : v)).refine((v) => !v || /^\d{7,8}$/.test(v), 'El DNI tiene que tener 7 u 8 números.'),
   domicilio: opcional(),
   neighborhood_id: z.string().uuid().or(z.literal('')).optional().transform((v) => v || null),
   telefono: opcional(30),

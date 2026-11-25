@@ -192,3 +192,24 @@ export function separarDomicilio(domicilio: string, localidades: string[] = []):
   if (conocida && (!ciudad || sinTildes(ciudad).includes(sinTildes(conocida)))) ciudad = conocida.toUpperCase()
   return { calle: calle.trim(), ciudad: ciudad?.replace(/^(B[º°*O.]|BARRIO)\s.*$/i, '').trim() || null }
 }
+
+/**
+ * DNI para mostrar o imprimir: con puntos ("28123456" → "28.123.456").
+ * En la base se guarda solo con números (así se comparan repetidos y se lee el código de barras).
+ */
+export function formatoDni(dni: string | null | undefined): string {
+  const limpio = (dni ?? '').replace(/[\s.\-]/g, '')
+  if (!/^\d{7,8}$/.test(limpio)) return dni ?? ''
+  return limpio.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+/**
+ * CUIL escrito de cualquier forma ("20123456783", "20 12345678 3", "20.12345678.3") → "20-12345678-3".
+ * Si no tiene 10 u 11 números se devuelve como vino, para que la validación avise.
+ */
+export function normalizarCuil(cuil: string): string {
+  const numeros = cuil.replace(/\D/g, '')
+  if (numeros.length === 11) return `${numeros.slice(0, 2)}-${numeros.slice(2, 10)}-${numeros.slice(10)}`
+  if (numeros.length === 10) return `${numeros.slice(0, 2)}-${numeros.slice(2, 9)}-${numeros.slice(9)}`
+  return cuil.trim()
+}

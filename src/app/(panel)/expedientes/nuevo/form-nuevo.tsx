@@ -118,7 +118,7 @@ export function FormNuevo({ leyes, localidades = [], edicion }: { leyes: LeyOpci
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Apellido</span><input id="apellido" name="apellido" defaultValue={v.apellido} required className="campo" /></label>
               <label className="grid gap-1.5"><span className="text-sm font-semibold">Nombre</span><input id="nombre" name="nombre" defaultValue={v.nombre} className="campo" /></label>
-              <label className="grid gap-1.5"><span className="text-sm font-semibold">DNI</span><input id="dni" name="dni" defaultValue={v.dni} inputMode="numeric" placeholder="Sin puntos" className="campo" /></label>
+              <label className="grid gap-1.5"><span className="text-sm font-semibold">DNI</span><input id="dni" name="dni" defaultValue={v.dni} inputMode="numeric" placeholder="Ej.: 28.123.456" className="campo" /></label>
               <label className="grid gap-1.5">
                 <span className="text-sm font-semibold">Estado civil</span>
                 <select id="estado_civil" name="estado_civil" className="campo" value={estadoCivil} onChange={(e) => setEstadoCivil(e.target.value)}>

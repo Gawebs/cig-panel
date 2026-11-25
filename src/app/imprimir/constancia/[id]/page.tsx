@@ -1,3 +1,4 @@
+import { formatoDni } from '@/lib/dni'
 import { notFound } from 'next/navigation'
 import { obtenerContexto } from '@/lib/sesion'
 import { createClient } from '@/lib/supabase/server'
@@ -60,7 +61,7 @@ export default async function ImprimirConstancia({ params, searchParams }: { par
       </div>
       <div className="titulo">Constancia de tenencia precaria</div>
       <p>
-        La {m.area_nombre} {ente} otorga la presente Tenencia Precaria al Sr/a {destacado(c.vecino_nombre)}; DNI: {destacado(c.dni)}, con domicilio en calle: {destacado(c.domicilio)}; Barrio: {destacado(c.barrio)}. Donde la propiedad se encuentra posicionada en una fracción del Padrón: {destacado(c.padron_catastral)}. Matrícula catastral: {destacado(c.matricula_catastral)}. Propietario legal: {destacado(c.propietario_legal)}.
+        La {m.area_nombre} {ente} otorga la presente Tenencia Precaria al Sr/a {destacado(c.vecino_nombre)}; DNI: {destacado(formatoDni(c.dni))}, con domicilio en calle: {destacado(c.domicilio)}; Barrio: {destacado(c.barrio)}. Donde la propiedad se encuentra posicionada en una fracción del Padrón: {destacado(c.padron_catastral)}. Matrícula catastral: {destacado(c.matricula_catastral)}. Propietario legal: {destacado(c.propietario_legal)}.
       </p>
       <p>
         La presente tenencia es de carácter precario, personal e intransferible, y no confiere al/la tenedor/a ningún derecho real ni expectativa de dominio sobre el inmueble mencionado. El/la tenedor/a reconoce que la ocupación se encuentra permitida por razones sociales y de necesidad habitacional, y que la presente autorización administrativa no implica reconocimiento de derecho alguno sobre la titularidad dominial del bien.

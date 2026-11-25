@@ -6,6 +6,7 @@
  * el texto (el borde inferior del rótulo impreso). Medidas con PyMuPDF sobre los PDF del portal.
  * Si Catastro cambia un formulario, hay que volver a medir.
  */
+import { formatoDni } from '../dni'
 
 /** Solicitante (s) o cónyuge (c) número 1 a 5. Del 3 al 5 van en el Anexo I. */
 export type Slot = `${'s' | 'c'}${1 | 2 | 3 | 4 | 5}`
@@ -668,12 +669,14 @@ export function valoresDesdeFicha(p: Plantilla, exp: FichaExpediente, personas: 
       if (!per) { v[c.id] = ''; continue }
       if (f.campo === 'apellido_nombre') v[c.id] = `${per.apellido} ${per.nombre}`.trim()
       else if (f.campo === 'edad') v[c.id] = edadDe(per)
+      else if (f.campo === 'dni') v[c.id] = formatoDni(per.dni)
       else v[c.id] = per[f.campo] ?? ''
     } else if (f.tipo === 'persona') {
       const per = personaDeSlot(personas, f.slot)
       if (!per) { v[c.id] = ''; continue }
       if (f.campo === 'apellido_nombre') v[c.id] = `${per.apellido} ${per.nombre}`.trim()
       else if (f.campo === 'estado_civil') v[c.id] = per.estado_civil ?? ''
+      else if (f.campo === 'dni') v[c.id] = formatoDni(per.dni)
       else v[c.id] = per[f.campo] ?? ''
     } else if ((CAMPOS_CATASTRALES as readonly string[]).includes(f.campo)) {
       v[c.id] = exp.datos_catastrales[f.campo] ?? ''

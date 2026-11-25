@@ -1,5 +1,6 @@
 'use client'
 
+import { formatoDni } from '@/lib/dni'
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { guardarPersona, quitarPersona } from '@/actions/expedientes'
@@ -159,7 +160,7 @@ export function Personas({ expedienteId, municipioId, personas, editable, grupoF
                   <p className="font-semibold">{p.apellido}{p.nombre ? `, ${p.nombre}` : ''}</p>
                   <p className="text-sm text-tenue">
                     {ROLES_PERSONA[p.rol]}{p.rol === 'solicitante' ? ` ${p.solicitante_numero}` : ''}
-                    {p.dni ? ` · DNI ${p.dni}` : ' · Sin DNI'}
+                    {p.dni ? ` · DNI ${formatoDni(p.dni)}` : ' · Sin DNI'}
                     {p.estado_civil ? ` · ${ESTADOS_CIVILES.find((e) => e.valor === p.estado_civil)?.texto}` : ''}
                     {p.vinculo ? ` · ${p.vinculo}` : ''}
                   </p>
