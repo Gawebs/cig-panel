@@ -60,7 +60,7 @@ export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promi
   const supabase = await createClient()
   const { data: previo } = await supabase
     .from('field_surveys')
-    .select('id, case_file_id, respuestas, relevador')
+    .select('id, case_file_id, respuestas, relevador, estado, gps_lat, gps_lng, gps_precision_m, gps_fecha, observaciones')
     .eq('case_file_id', d.expedienteId)
     .maybeSingle()
   // Un relevamiento por expediente. Si ya hay uno con otro número pero es de la misma persona
@@ -84,13 +84,14 @@ export async function guardarRelevamiento(datos: RelevamientoParaGuardar): Promi
   const fila = {
     id: idGuardado,
     case_file_id: d.expedienteId,
-    estado: d.estado,
-    gps_lat: d.gps?.lat ?? null,
-    gps_lng: d.gps?.lng ?? null,
-    gps_precision_m: d.gps?.precision ?? null,
-    gps_fecha: d.gps?.fecha ?? null,
+    // Lo que no viene (otro equipo con el relevamiento vacío) no borra lo que ya estaba.
+    estado: previo?.estado === 'completo' ? 'completo' : d.estado,
+    gps_lat: d.gps?.lat ?? previo?.gps_lat ?? null,
+    gps_lng: d.gps?.lng ?? previo?.gps_lng ?? null,
+    gps_precision_m: d.gps?.precision ?? previo?.gps_precision_m ?? null,
+    gps_fecha: d.gps?.fecha ?? previo?.gps_fecha ?? null,
     respuestas,
-    observaciones: d.observaciones,
+    observaciones: { ...((previo?.observaciones ?? {}) as Record<string, unknown>), ...d.observaciones },
   }
   const { error } = previo
     ? await supabase.from('field_surveys').update(fila).eq('id', idGuardado).select('id').single()
